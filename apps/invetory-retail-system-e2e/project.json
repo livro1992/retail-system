@@ -1,0 +1,20 @@
+{
+  "name": "invetory-retail-system-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "implicitDependencies": ["invetory-retail-system"],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{e2eProjectRoot}"],
+      "options": {
+        "jestConfig": "apps/invetory-retail-system-e2e/jest.config.cts",
+        "passWithNoTests": true
+      },
+      "dependsOn": [
+        "invetory-retail-system:build",
+        "invetory-retail-system:serve"
+      ]
+    }
+  }
+}
