@@ -1,0 +1,39 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   
+      - "15672:15672" # Dashboard admin (user: guest, pass: guest)
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: retail_db
+    ports:
+      - "5432:5432"
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      RMQ_URL: amqp://rabbitmq:5672
+    depends_on:
+      - rabbitmq
+
+  auth-service:
+    build: ./auth-service
+    environment:
+      RMQ_URL: amqp://rabbitmq:5672
+    depends_on:
+      - rabbitmq
+
+  inventory-service:
+    build: ./inventory-service
+    environment:
+      RMQ_URL: amqp://rabbitmq:5672
+    depends_on:
+      - rabbitmq
+      - postgres
