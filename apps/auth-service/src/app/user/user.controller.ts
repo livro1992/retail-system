@@ -20,6 +20,11 @@ export class UserController {
         return this.userService.getUser(id);
     }
 
+    @MessagePattern({ cmd: AuthCommand.getAllUser })
+    getAllUsers() {
+        return this.userService.getAllUsers();
+    }
+
     @MessagePattern({ cmd: AuthCommand.updateUser })
     updateUser(@Payload() data: { id: number } & UpdateUserDto) {
         const { id, ...userDto } = data;

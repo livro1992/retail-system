@@ -3,23 +3,28 @@ import { UserRole } from "@retail-system/shared";
 
 @Entity()
 export class User {
-    @PrimaryGeneratedColumn()
+    @PrimaryGeneratedColumn({
+        name: 'user_id'
+    })
     userId: number;
 
     @Column({
-        unique: true
+        unique: true,
+        name: 'email'
     })
     email: string;
 
     @Column({
-        select: false
+        select: false,
+        name: 'password'
     })
     password: string;
 
     @Column({
         type: 'enum',
         enum: UserRole,
-        default: UserRole.admin
+        default: UserRole.admin,
+        name: 'user_role'
     })
     role: UserRole;
 }

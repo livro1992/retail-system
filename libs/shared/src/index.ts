@@ -7,3 +7,4 @@ export * from './lib/dto/user/update_user.dto';
 export * from './lib/interceptors/response_interceptor';
 export * from './lib/interceptors/expcetion_filter_interceptor';
 export * from './lib/dto/user/sign_in.dto';
+export * from './lib/interface/jwt_payload';
