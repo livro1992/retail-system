@@ -103,6 +103,25 @@ export class UserService {
         }
     }
 
+    async getAllUsers(): Promise<ApiResponse<User[]>> {
+        try {
+            const userList = await this.userRepository.find();
+
+            return {
+                success: true,
+                data: userList
+            }
+        } catch (e) {
+            return {
+                success: false,
+                error: {
+                    code: HttpStatusCode.BadRequest,
+                    description: e
+                }
+            }
+        }
+    }
+
     async updateUser(id: User['userId'], updateDto: Partial<UserDto>): Promise<ApiResponse<User>> {
         try {
             if(updateDto.password != null) {

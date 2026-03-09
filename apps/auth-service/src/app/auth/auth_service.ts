@@ -1,13 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { User } from "../database/entities/user";
+import { JwtPayload } from "@retail-system/shared";
 
 @Injectable()
 export class AuthService {
     constructor(private readonly jwtService: JwtService) {}
 
     generateJwtToken(user: User) {
-        const payload = {
+        const payload: JwtPayload = {
             id: user.userId,
             email: user.email,
             role: user.role
