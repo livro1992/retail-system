@@ -7,7 +7,6 @@ import { User } from './database/entities/user';
 import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from './user/user.module';
 import { ConfigModule } from '@nestjs/config';
-import { join } from 'path';
 
 @Module({
   imports: [

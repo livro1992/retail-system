@@ -1,4 +1,4 @@
-import { UserRole } from "../constants/user_roles";
+import { UserRole } from "../constants/user/user_roles";
 
 export interface JwtPayload {
     id: number;

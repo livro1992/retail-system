@@ -1,17 +1,10 @@
 import { Module } from "@nestjs/common";
-import { JwtModule } from "@nestjs/jwt";
 import { AuthController } from "./auth.controller";
 import { JwtAuthGuard } from "./guards/jwt-auth-guard";
 import { ClientsModule, Transport } from "@nestjs/microservices";
-import { ConfigModule } from "@nestjs/config";
-import { join } from "path";
 
 @Module({
     imports: [
-        ConfigModule.forRoot({
-            //envFilePath: join(process.cwd(), '.env'),
-            isGlobal: true
-        }),
         ClientsModule.register([
         {
             name: 'AUTHENTICATION_SERVICE',
@@ -22,11 +15,6 @@ import { join } from "path";
                 queueOptions: { durable: true },
             },
         }]),
-        JwtModule.register({
-            global: true, 
-            secret: process.env.JWT_SECRET,
-            signOptions: { expiresIn: '1h' },
-        })
     ],
     controllers: [AuthController],
     providers: [JwtAuthGuard],
