@@ -50,6 +50,7 @@ export class OrderService {
     }
 
     private calcAmount(): number {
+        
         return 10;
     }
 }
