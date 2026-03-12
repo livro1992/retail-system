@@ -1,16 +1,32 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DatabaseModule } from './database/database.module';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { OrderModule } from './order/order.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Order } from './database/entities/order';
+import { Package } from './database/entities/package';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-        //envFilePath: join(process.cwd(), '.env'),
-        isGlobal: true
+      //envFilePath: join(process.cwd(), '.env'),
+      isGlobal: true,
+    }),
+    TypeOrmModule.forRoot({
+        type: 'postgres',
+        host: 'localhost',
+        port: 5432,
+        username: 'postgres',
+        password: 'postgres',
+        database: 'order_db',
+        entities: [
+            Order,
+            Package
+        ],
+        synchronize: true
     }),
     JwtModule.register({
       global: true,
@@ -28,7 +44,7 @@ import { JwtModule } from '@nestjs/jwt';
         },
       },
     ]),
-    DatabaseModule
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [AppService],

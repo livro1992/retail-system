@@ -1,8 +1,8 @@
-import { Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
 import { RolesAuthGuard } from '../auth/guards/roles-auth-guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth-guard';
 import { ClientProxy } from '@nestjs/microservices';
-import { OrdersCommand } from '@retail-system/shared';
+import { CreateOrderDto, OrdersCommand } from '@retail-system/shared';
 
 @Controller('orders')
 export class OrdersController {
@@ -19,7 +19,8 @@ export class OrdersController {
     
     @Post('create')
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    createOrder() {
-        return this.client.send({ cmd: OrdersCommand.createOrder }, {});
+    createOrder(@Body() orderDto: CreateOrderDto) {
+        console.log(orderDto);
+        return this.client.send({ cmd: OrdersCommand.createOrder }, orderDto);
     }
 }
