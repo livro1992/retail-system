@@ -1,7 +1,10 @@
 export enum OrderStatus {
     open = 'open',
-    processing = 'processing',
+    reserved = 'reserved',
     ready = 'ready',
     shipped = 'shipped',
-    completed = 'completed'
+    completed = 'completed',
+    toRestock = 'to_restock',
+    returned = 'returned',
+    checkQuality = 'check_quality'
 }

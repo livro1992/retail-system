@@ -6,7 +6,7 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app/app.module';
-import { ResponseInterceptor } from '@retail-system/shared';
+import { AllExceptionsFilter, ResponseInterceptor } from '@retail-system/shared';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

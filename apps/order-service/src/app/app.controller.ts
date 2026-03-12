@@ -14,8 +14,6 @@ export class AppController {
 
   @MessagePattern({cmd: OrdersCommand.checkStatus })
   handleStatus() {
-    console.log('riva anggot??');
-
     return "PONG! Il microservizio Orders è vivo e risponde.";
   }
 }
