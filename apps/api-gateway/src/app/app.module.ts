@@ -1,26 +1,27 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-import { InventoryController } from './inventory/inventory.controller';
 import { AuthModule } from './auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule } from '@nestjs/config';
+import { InventoryModule } from './inventory/inventory.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
-    ClientsModule.register([
-      {
-        name: 'INVENTORY_SERVICE',
-        transport: Transport.RMQ,
-        options: {
-          urls: ['amqp://localhost:5672'],
-          queue: 'inventory_queue',
-          queueOptions: { durable: true },
-        },
-      },
-    ]),
-    AuthModule
+    ConfigModule.forRoot({
+        isGlobal: true
+    }),
+    JwtModule.register({
+        global: true, 
+        secret: process.env.JWT_SECRET,
+        signOptions: { expiresIn: '1h' },
+    }),
+    InventoryModule,
+    AuthModule,
+    OrdersModule
   ],
-  controllers: [AppController, InventoryController],
+  controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}

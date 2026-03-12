@@ -1,6 +1,6 @@
 export * from './lib/shared';
-export * from './lib/constants/user_roles';
-export * from './lib/constants/auth_commands';
+export * from './lib/constants/user/user_roles';
+export * from './lib/communication_commands/auth_commands';
 export * from './lib/dto/user/user.dto';
 export * from './lib/interface/api_response';
 export * from './lib/dto/user/update_user.dto';
@@ -8,3 +8,8 @@ export * from './lib/interceptors/response_interceptor';
 export * from './lib/interceptors/expcetion_filter_interceptor';
 export * from './lib/dto/user/sign_in.dto';
 export * from './lib/interface/jwt_payload';
+export * from './lib/communication_commands/orders_command';
+export * from './lib/constants/orders/order_type';
+export * from './lib/constants/orders/package_type';
+export * from './lib/constants/orders/order_status';
+export * from './lib/constants/orders/package_status';

@@ -1,4 +1,4 @@
-import { UserRole } from "../../constants/user_roles";
+import { UserRole } from "../../constants/user/user_roles";
 import { IsOptional, IsString, IsEmail, IsEnum, MinLength } from "class-validator";
 
 export class UserDto implements Readonly<UserDto> {

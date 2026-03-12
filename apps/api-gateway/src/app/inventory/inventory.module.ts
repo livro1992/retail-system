@@ -1,23 +1,21 @@
 import { Module } from "@nestjs/common";
-import { AuthController } from "./auth.controller";
-import { JwtAuthGuard } from "./guards/jwt-auth-guard";
 import { ClientsModule, Transport } from "@nestjs/microservices";
+import { InventoryController } from "./inventory.controller";
 
 @Module({
     imports: [
         ClientsModule.register([
-        {
-            name: 'AUTHENTICATION_SERVICE',
+            {
+            name: 'INVENTORY_SERVICE',
             transport: Transport.RMQ,
             options: {
                 urls: ['amqp://localhost:5672'],
-                queue: 'auth_queue',
+                queue: 'inventory_queue',
                 queueOptions: { durable: true },
             },
-        }]),
+            },
+        ]),
     ],
-    controllers: [AuthController],
-    providers: [JwtAuthGuard],
-    exports: [JwtAuthGuard, AuthModule] 
+    controllers: [InventoryController]
 })
-export class AuthModule {}
+export class InventoryModule { }

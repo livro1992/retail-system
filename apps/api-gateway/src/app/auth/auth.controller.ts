@@ -16,6 +16,8 @@ export class AuthController {
     }
 
     @Get('status')
+    @Roles(UserRole.admin)
+    @UseGuards(JwtAuthGuard, RolesAuthGuard)
     checkAuthStatus() {
         return this.client.send({ cmd: AuthCommand.checkStatus }, {});
     }
