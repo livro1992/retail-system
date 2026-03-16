@@ -3,42 +3,40 @@ import { ApiResponse, CreateOrderDto, OrderPaymentStatus, OrderStatus, OrderType
 import { Order } from "../database/entities/order";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Package } from "../database/entities/package";
 import { HttpStatusCode } from "axios";
-import { log } from "node:console";
+import { OrderItem } from "../database/entities/order_item";
 
 @Injectable()
 export class OrderService {
     constructor(
         @InjectRepository(Order) private orderRepository: Repository<Order>,
-        @InjectRepository(Package) private packageRepository: Repository<Package>
+        @InjectRepository(OrderItem) private packageRepository: Repository<OrderItem>
     ) {}
 
     async createOrder(order: CreateOrderDto): Promise<ApiResponse<Order>> {
         try {
-            const packages = order.packages.map(p => {
+            const totalSum = order.orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            const orderItems = order.orderItems.map(p => {
                 return this.packageRepository.create({
-                    ...p,
-                    trackingCode: crypto.randomUUID(),
-                    status: PackageStatus.inStock
+                    orderItemId: crypto.randomUUID(),    
+                    ...p
                 });
             });
             const query = await this.orderRepository.create({
-                orderType: OrderType.receipt,
-                orderStatus: OrderStatus.open,
-                paymentStatus: OrderPaymentStatus.pending,
-                totalAmount: this.calcAmount(),
-                packages: packages
-            });
-            const orderDb = await this.orderRepository.save(query);
+                orderType: order.orderType,
+                orderStatus: order.orderStatus,
+                paymentStatus: order.paymentStatus,
+                totalAmount: totalSum,
+                orderItems: orderItems
+            }); 
+
+            const res = await this.orderRepository.save(query);
 
             return {
                 success: true,
-                data: orderDb
+                data: res
             }
         } catch (e) {
-            console.log(e);
-            
             return {
                 success: false,
                 error: {
@@ -47,10 +45,5 @@ export class OrderService {
                 }
             }
         }
-    }
-
-    private calcAmount(): number {
-        
-        return 10;
     }
 }

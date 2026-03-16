@@ -1,9 +1,9 @@
-import { IsArray, IsEnum, IsOptional, ValidateNested } from "class-validator";
+import { IsArray, IsEnum, IsOptional, IsString } from "class-validator";
 import { OrderType } from "../../constants/orders/order_type";
 import { OrderStatus } from "../../constants/orders/order_status";
 import { OrderPaymentStatus } from "../../constants/orders/order_payment_status";
-import { CreatePackageDto } from "./create-package.dto";
 import { Type } from 'class-transformer';
+import { CreateOrderItemDto } from "./create-order-item.dto";
 
 export class CreateOrderDto implements Readonly<CreateOrderDto> {
       @IsOptional()
@@ -15,13 +15,20 @@ export class CreateOrderDto implements Readonly<CreateOrderDto> {
       orderStatus?: OrderStatus;
 
       @IsOptional()
+      @IsString()
+      paymentId?: string;
+
+      @IsOptional()
       @IsEnum(OrderPaymentStatus)
       paymentStatus?: OrderPaymentStatus;
+
+      @IsString()
+      marketId!: string;
 
       @IsArray({
         always: true,
         message: 'Invalid order. Insert al least one article'
       })
-      @Type(() => CreatePackageDto)
-      packages!: CreatePackageDto[];
+      @Type(() => CreateOrderItemDto)
+      orderItems!: CreateOrderItemDto[];
 }

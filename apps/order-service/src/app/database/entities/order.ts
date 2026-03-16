@@ -1,6 +1,6 @@
 import { OrderPaymentStatus, OrderStatus, OrderType } from "@retail-system/shared";
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Package } from "./package";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { OrderItem } from "./order_item";
 
 @Entity()
 export class Order {
@@ -8,6 +8,12 @@ export class Order {
         name: 'order_id'
     })
     orderId: string;
+
+    @CreateDateColumn()
+    createdAt: Date;
+
+    @UpdateDateColumn()
+    updateAt: Date;
 
     @Column({
         name: 'order_type',
@@ -47,8 +53,11 @@ export class Order {
     })
     totalAmount: number;
 
-    @OneToMany(() => Package, (pack) => pack.packageId, {
+    @Column()
+    marketId: string;
+
+    @OneToMany(() => OrderItem, (item) => item.orderItemId, {
         cascade: true,
     })
-    packages: Package[];
+    orderItems: OrderItem[];
 }
