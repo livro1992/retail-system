@@ -14,7 +14,6 @@ export class OrderController {
 
     @Post()
     createOrder(@Payload() orderDto: CreateOrderDto) {
-        console.log(orderDto);
         return this.orderService.createOrder(orderDto);
     }
 }

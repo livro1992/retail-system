@@ -33,9 +33,11 @@ export class OrderItem {
     })
     price: number;
 
-    @ManyToOne(() => Order, (order) => order.orderId)
+    @ManyToOne(() => Order, (order) => order.orderId, {
+        onDelete: 'CASCADE'
+    })
     @JoinColumn({
-        name: 'order'
+        name: 'order',
     })
     order: Order;
 }

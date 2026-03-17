@@ -4,6 +4,7 @@ import { OrderStatus } from "../../constants/orders/order_status";
 import { OrderPaymentStatus } from "../../constants/orders/order_payment_status";
 import { Type } from 'class-transformer';
 import { CreateOrderItemDto } from "./create-order-item.dto";
+import { OrderFullfilmentMode } from "../../constants/orders/order_fullfilmode";
 
 export class CreateOrderDto implements Readonly<CreateOrderDto> {
       @IsOptional()
@@ -24,6 +25,9 @@ export class CreateOrderDto implements Readonly<CreateOrderDto> {
 
       @IsString()
       marketId!: string;
+
+      @IsEnum(OrderFullfilmentMode)
+      fulfillmentMode!: OrderFullfilmentMode;
 
       @IsArray({
         always: true,

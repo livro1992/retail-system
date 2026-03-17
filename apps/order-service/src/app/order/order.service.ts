@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, Injectable } from "@nestjs/common";
 import { ApiResponse, CreateOrderDto, OrderPaymentStatus, OrderStatus, OrderType, PackageStatus } from "@retail-system/shared";
 import { Order } from "../database/entities/order";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -13,7 +13,7 @@ export class OrderService {
         @InjectRepository(OrderItem) private packageRepository: Repository<OrderItem>
     ) {}
 
-    async createOrder(order: CreateOrderDto): Promise<ApiResponse<Order>> {
+    async createOrder(order: CreateOrderDto): Promise<Order> {
         try {
             const totalSum = order.orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
             const orderItems = order.orderItems.map(p => {
@@ -23,27 +23,19 @@ export class OrderService {
                 });
             });
             const query = await this.orderRepository.create({
-                orderType: order.orderType,
-                orderStatus: order.orderStatus,
-                paymentStatus: order.paymentStatus,
+                ...order,
                 totalAmount: totalSum,
                 orderItems: orderItems
             }); 
-
-            const res = await this.orderRepository.save(query);
-
-            return {
-                success: true,
-                data: res
-            }
+            return await this.orderRepository.save(query);
         } catch (e) {
-            return {
-                success: false,
-                error: {
-                    code: HttpStatusCode.InternalServerError,
-                    description: e
-                }
+            if (e.response) {
+                throw new HttpException(
+                    e.response.data,
+                    e.response.status
+                );
             }
+            throw new HttpException('Errore interno del Gateway', 500);
         }
     }
 }
