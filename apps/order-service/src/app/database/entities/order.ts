@@ -1,6 +1,6 @@
-import { OrderPaymentStatus, OrderStatus, OrderType } from "@retail-system/shared";
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Package } from "./package";
+import { OrderFullfilmentMode, OrderPaymentStatus, OrderStatus, OrderType,  } from "@retail-system/shared";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { OrderItem } from "./order_item";
 
 @Entity()
 export class Order {
@@ -8,6 +8,12 @@ export class Order {
         name: 'order_id'
     })
     orderId: string;
+
+    @CreateDateColumn()
+    createdAt: Date;
+
+    @UpdateDateColumn()
+    updateAt: Date;
 
     @Column({
         name: 'order_type',
@@ -42,13 +48,27 @@ export class Order {
     @Column({
         name: 'total_amount',
         type: 'decimal',
-        precision: 4,
+        precision: 12,
         scale: 2
     })
     totalAmount: number;
 
-    @OneToMany(() => Package, (pack) => pack.packageId, {
-        cascade: true,
+    @Column({
+        name: 'market_id'
     })
-    packages: Package[];
+    marketId: string;
+
+    @Column({
+        name: 'fulfillment_mode',
+        type: 'enum',
+        enum: OrderFullfilmentMode,
+        default: OrderFullfilmentMode.instant
+    })
+    fulfillmentMode: OrderFullfilmentMode;
+
+    @OneToMany(() => OrderItem, (item) => item.orderItemId, {
+        cascade: true,
+        onDelete: "CASCADE"
+    })
+    orderItems: OrderItem[];
 }

@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { Order } from './entities/order';
-import { Package } from './entities/package';
+import { OrderItem } from './entities/order_item';
 
 export const databaseProviders = [
     {
@@ -15,7 +15,7 @@ export const databaseProviders = [
                 database: 'order_db',
                 entities: [
                     Order,
-                    Package
+                    OrderItem
                 ],
                 synchronize: true
             });

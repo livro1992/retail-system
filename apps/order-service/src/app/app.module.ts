@@ -7,7 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { OrderModule } from './order/order.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './database/entities/order';
-import { Package } from './database/entities/package';
+import { OrderItem } from './database/entities/order_item';
 
 @Module({
   imports: [
@@ -24,7 +24,7 @@ import { Package } from './database/entities/package';
         database: 'order_db',
         entities: [
             Order,
-            Package
+            OrderItem
         ],
         synchronize: true
     }),
