@@ -28,16 +28,19 @@ export class OrderItem {
     @Column({
         name: 'price',
         type: 'decimal',
-        precision: 4,
+        precision: 8,
         scale: 2
     })
     price: number;
 
-    @ManyToOne(() => Order, (order) => order.orderId, {
+    @ManyToOne(() => Order, (order) => order.orderItems, {
         onDelete: 'CASCADE'
     })
     @JoinColumn({
-        name: 'order',
+        name: 'orderId',
     })
     order: Order;
+
+    @Column()
+    orderId: string;
 }
