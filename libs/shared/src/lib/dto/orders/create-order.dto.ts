@@ -7,9 +7,8 @@ import { CreateOrderItemDto } from "./create-order-item.dto";
 import { OrderFullfilmentMode } from "../../constants/orders/order_fullfilmode";
 
 export class CreateOrderDto implements Readonly<CreateOrderDto> {
-      @IsOptional()
       @IsEnum(OrderType)
-      orderType?: OrderType;
+      orderType!: OrderType;
 
       @IsOptional()
       @IsEnum(OrderStatus)

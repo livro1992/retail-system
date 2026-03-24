@@ -15,8 +15,9 @@ export class OrdersController {
 
     @Get('status')
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    getStatusOrderService() {
-        return this.client.send({ cmd: OrdersCommand.checkStatus }, {});
+    async getStatusOrderService() {
+        // Asynchronous request/response via message broker (RMQ)
+        return await firstValueFrom(this.client.send({ cmd: OrdersCommand.checkStatus }, {}));
     }
 
     
@@ -24,23 +25,16 @@ export class OrdersController {
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async createOrder(@Body() orderDto: CreateOrderDto) {
         try {
+            // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
                 this.httpService.post('http://localhost:3001/order', orderDto)
             );
             return data; 
         } catch (e) {
-            console.error('Errore nella chiamata HTTP:', e.message);
-            
             if (e.response) {
-                // Logghiamo per noi sviluppatori nel terminale del Gateway
-                console.error('--- ERRORE DAL MICROSERVIZIO ---');
-                console.error('Status:', e.response.status);
-                console.error('Body:', JSON.stringify(e.response.data, null, 2));
-
-                // Rilanciamo l'errore al client (Frontend) ESATTAMENTE come ci è arrivato
                 throw new HttpException(
-                    e.response.data,      // Il messaggio di errore originale (es. l'array dei DTO falliti)
-                    e.response.status     // Lo status code originale (400)
+                    e.response.data,
+                    e.response.status
                 );
             } 
 
@@ -49,7 +43,6 @@ export class OrdersController {
                 console.error('Il microservizio sulla 3001 non risponde!');
                 throw new HttpException('Servizio Ordini momentaneamente non raggiungibile', 503);
             }
-
             // 3. Caso: Errore imprevisto nel codice del Gateway
             throw new HttpException('Errore interno del Gateway', 500);
         }

@@ -17,3 +17,4 @@ export * from './lib/constants/orders/order_payment_status';
 export * from './lib/dto/orders/create-order.dto';
 export * from './lib/dto/orders/create-order-item.dto';
 export * from './lib/constants/orders/order_fullfilmode';
+export * from './lib/constants/inventory/movement_type';

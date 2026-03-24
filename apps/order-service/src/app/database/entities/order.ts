@@ -66,7 +66,7 @@ export class Order {
     })
     fulfillmentMode: OrderFullfilmentMode;
 
-    @OneToMany(() => OrderItem, (item) => item.orderItemId, {
+    @OneToMany(() => OrderItem, (item) => item.order, {
         cascade: true,
         onDelete: "CASCADE"
     })

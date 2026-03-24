@@ -1,4 +1,4 @@
-import { IsDecimal, IsEnum, IsInt, IsString } from "class-validator";
+import { IsDecimal, IsEnum, IsInt, IsNumber, IsString, Min } from "class-validator";
 import { PackageType } from "../../constants/orders/package_type";
 
 export class CreateOrderItemDto implements Readonly<CreateOrderItemDto> {
@@ -14,6 +14,9 @@ export class CreateOrderItemDto implements Readonly<CreateOrderItemDto> {
     @IsInt()
     quantity!: number;
 
-    @IsDecimal()
+    @IsNumber({
+        maxDecimalPlaces: 2
+    })
+    @Min(0.01)
     price!: number;
 }
