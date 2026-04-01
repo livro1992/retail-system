@@ -8,6 +8,7 @@ import { OrderModule } from './order/order.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './database/entities/order';
 import { OrderItem } from './database/entities/order_item';
+import { Payment } from './database/entities/payment';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { OrderItem } from './database/entities/order_item';
         database: 'order_db',
         entities: [
             Order,
-            OrderItem
+            OrderItem,
+            Payment
         ],
         synchronize: true
     }),

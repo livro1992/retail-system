@@ -9,7 +9,12 @@ import { firstValueFrom, TimeoutError, timeout } from "rxjs";
 
 type InventoryAvailabilityCheckResponse = {
     available: boolean;
-    items: { productId: string; requested: number; availableQuantity: number; available: boolean }[];
+    items: { 
+        productId: string; 
+        requested: number; 
+        availableQuantity: number; 
+        available: boolean 
+    }[];
 };
 
 @Injectable()
@@ -45,8 +50,10 @@ export class OrderService {
      */
     async createOrder(order: CreateOrderDto): Promise<Order> {
         try {
-            if (this.mustCheckAvailability(order)) {
-                const availability = await this.checkInventoryAvailability(order);
+            //
+            //  Controllo disponibilità prodotti
+            if (this._mustCheckAvailability(order)) {
+                const availability = await this._checkInventoryAvailability(order);
                 if (!availability.available) {
                     const unavailableItems = availability.items.filter((item) => !item.available);
                     throw new BadRequestException({
@@ -56,6 +63,8 @@ export class OrderService {
                 }
             }
 
+            //
+            // Se contanti, proseguo
             if (order.fulfillmentMode === OrderFullfilmentMode.instant) {
                 const paymentCorrect = 
                     (order.paymentStatus === OrderPaymentStatus.paid) 
@@ -66,6 +75,8 @@ export class OrderService {
                 }
             }
 
+            //
+            //  
             const totalSum = order.orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
             const orderItems = order.orderItems.map(p =>
                 this.packageRepository.create({
@@ -95,12 +106,12 @@ export class OrderService {
         }
     }
 
-    private mustCheckAvailability(order: CreateOrderDto): boolean {
+    private _mustCheckAvailability(order: CreateOrderDto): boolean {
         // Vendita in contanti "istantanea": scalo diretto senza pre-check.
         return !(order.orderType === OrderType.selling && order.fulfillmentMode === OrderFullfilmentMode.instant);
     }
 
-    private async checkInventoryAvailability(order: CreateOrderDto): Promise<InventoryAvailabilityCheckResponse> {
+    private async _checkInventoryAvailability(order: CreateOrderDto): Promise<InventoryAvailabilityCheckResponse> {
         return await firstValueFrom(
             this.inventoryClient.send(
                 { cmd: 'check_availability' },
@@ -114,6 +125,7 @@ export class OrderService {
             ).pipe(timeout(2500))
         ) as InventoryAvailabilityCheckResponse;
     }
+
 
     async getAllOrders(): Promise<Order[]> {
         return this.orderRepository.find({

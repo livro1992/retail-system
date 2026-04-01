@@ -3,6 +3,7 @@ import { AuthCommand, JwtPayload, Roles, SignInDto, UpdateUserDto, UserDto, User
 import { ClientProxy } from '@nestjs/microservices';
 import { JwtAuthGuard } from './guards/jwt-auth-guard';
 import { RolesAuthGuard } from './guards/roles-auth-guard';
+import { sendRmqWithTimeout } from '../rmq/send-with-timeout';
 
 @Controller('auth')
 export class AuthController {
@@ -11,39 +12,39 @@ export class AuthController {
     ) {}
 
     @Post('sign_in')
-    signIn(@Body() credentials: SignInDto) {
-        return this.client.send({ cmd: AuthCommand.signIn }, credentials);
+    async signIn(@Body() credentials: SignInDto) {
+        return sendRmqWithTimeout(this.client, { cmd: AuthCommand.signIn }, credentials);
     }
 
     @Get('status')
     @Roles(UserRole.admin)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    checkAuthStatus() {
-        return this.client.send({ cmd: AuthCommand.checkStatus }, {});
+    async checkAuthStatus() {
+        return sendRmqWithTimeout(this.client, { cmd: AuthCommand.checkStatus }, {});
     }
 
     @Post('create')
-    createUser(@Body() userDto: UserDto) {
-        return this.client.send({ cmd: AuthCommand.createUser }, userDto);
+    async createUser(@Body() userDto: UserDto) {
+        return sendRmqWithTimeout(this.client, { cmd: AuthCommand.createUser }, userDto);
     }
 
     @Get('all')
     @Roles(UserRole.admin)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    getAllUsers() {
-        return this.client.send({ cmd: AuthCommand.getAllUser }, {});
+    async getAllUsers() {
+        return sendRmqWithTimeout(this.client, { cmd: AuthCommand.getAllUser }, {});
     }
 
     @Get(':id')
     @Roles(UserRole.admin, UserRole.user)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    getUser(@Req() req, @Param('id') id: number) {
+    async getUser(@Req() req, @Param('id') id: number) {
         const currentUser: JwtPayload = req.user;
 
         if(currentUser.id != id && currentUser.role != UserRole.admin) {
             throw new ForbiddenException('Invalid permission');
         }
-        return this.client.send({ cmd: AuthCommand.getUser }, id);
+        return sendRmqWithTimeout(this.client, { cmd: AuthCommand.getUser }, id);
     }
 
 
@@ -51,7 +52,7 @@ export class AuthController {
     @Put('update/:id')
     @Roles(UserRole.admin, UserRole.user)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    updateUser(
+    async updateUser(
         @Req() req, 
         @Param('id') id: number, 
         @Body() userDto: UpdateUserDto
@@ -61,7 +62,7 @@ export class AuthController {
         if(currentUser.id != id) {
             throw new ForbiddenException('Invalid permission');
         }
-        return this.client.send({ cmd: AuthCommand.updateUser }, {
+        return sendRmqWithTimeout(this.client, { cmd: AuthCommand.updateUser }, {
             id,
             ...userDto
         });

@@ -5,6 +5,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { CreateOrderDto, OrdersCommand } from '@retail-system/shared';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { HTTP_DOWNSTREAM_TIMEOUT_MS, sendRmqWithTimeout } from '../rmq/send-with-timeout';
 
 @Controller('orders')
 export class OrdersController {
@@ -17,7 +18,7 @@ export class OrdersController {
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async getStatusOrderService() {
         // Asynchronous request/response via message broker (RMQ)
-        return await firstValueFrom(this.client.send({ cmd: OrdersCommand.checkStatus }, {}));
+        return sendRmqWithTimeout(this.client, { cmd: OrdersCommand.checkStatus }, {});
     }
 
     
@@ -27,7 +28,9 @@ export class OrdersController {
         try {
             // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
-                this.httpService.post('http://localhost:3001/order', orderDto)
+                this.httpService.post('http://localhost:3001/order', orderDto, {
+                    timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+                })
             );
             return data; 
         } catch (e) {

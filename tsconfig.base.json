@@ -15,6 +15,7 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
+      "@retail-system/contracts": ["libs/contracts/src/index.ts"],
       "@retail-system/shared": ["libs/shared/src/index.ts"]
     }
   },

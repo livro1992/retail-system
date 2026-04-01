@@ -1,6 +1,7 @@
 import { OrderFullfilmentMode, OrderPaymentStatus, OrderStatus, OrderType,  } from "@retail-system/shared";
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { OrderItem } from "./order_item";
+import { Payment } from "./payment";
 
 @Entity()
 export class Order {
@@ -30,12 +31,6 @@ export class Order {
         default: OrderStatus.open
     })
     orderStatus: OrderStatus;
-
-    @Column({
-        name: 'payment_id',
-        nullable: true
-    })
-    paymentId: string;
 
     @Column({
         name: 'payment_status',
@@ -70,5 +65,11 @@ export class Order {
         cascade: true,
         onDelete: "CASCADE"
     })
+    @JoinColumn({
+        name: 'order_id'
+    })
     orderItems: OrderItem[];
+
+    @OneToOne(() => Payment)
+    paymentId: string;
 }
