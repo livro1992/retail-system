@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { Product } from '../database/entites/products';
+import { CreateProductDto } from '@retail-system/shared';
+import { Product } from '../../database/entites/products';
 import { ProductsService } from './products.service';
 
 @Controller('products')
@@ -17,7 +18,7 @@ export class ProductsController {
   }
 
   @Post()
-  create(@Body() payload: Product) {
+  create(@Body() payload: CreateProductDto) {
     return this.productsService.create(payload);
   }
 

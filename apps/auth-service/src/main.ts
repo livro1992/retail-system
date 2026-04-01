@@ -18,7 +18,7 @@ async function bootstrap() {
   });
   await app.listen();
   Logger.log(
-    `🚀 Application auth-service is running`,
+    `🚀 Application auth-service is running (RMQ queue: auth_queue)`,
   );
 }
 

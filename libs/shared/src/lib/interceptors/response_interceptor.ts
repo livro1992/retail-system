@@ -1,5 +1,5 @@
 import { map, Observable } from "rxjs";
-import { ApiResponse } from "../interface/api_response";
+import { ApiResponse } from '@retail-system/contracts';
 import { CallHandler, ExecutionContext, HttpException, HttpStatus, Injectable, NestInterceptor } from '@nestjs/common';
 
 @Injectable()
