@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, RelationId, UpdateDateColumn } from "typeorm";
 import { Product } from "./products";
 
 @Entity('stock')
@@ -19,9 +19,9 @@ export class Stock {
     lastUpdate: Date;
 
     @ManyToOne(() => Product, (product) => product.stocks, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'productId' })
+    @JoinColumn({ name: 'productId', referencedColumnName: 'productId' })
     product: Product;
 
-    @Column()
+    @RelationId((s: Stock) => s.product)
     productId: string;
 }

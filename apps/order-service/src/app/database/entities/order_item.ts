@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, RelationId } from "typeorm";
 import { Order } from "./order";
 
 @Entity()
@@ -37,10 +37,11 @@ export class OrderItem {
         onDelete: 'CASCADE'
     })
     @JoinColumn({
-        name: 'orderId',
+        name: 'order_id',
+        referencedColumnName: 'order_id',
     })
     order: Order;
 
-    @Column()
+    @RelationId((item: OrderItem) => item.order)
     orderId: string;
 }

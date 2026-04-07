@@ -9,6 +9,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './database/entities/order';
 import { OrderItem } from './database/entities/order_item';
 import { Payment } from './database/entities/payment';
+import { SubOrder } from './database/entities/sub_order';
+import { SubOrderItem } from './database/entities/sub_order_item';
 
 @Module({
   imports: [
@@ -26,7 +28,9 @@ import { Payment } from './database/entities/payment';
         entities: [
             Order,
             OrderItem,
-            Payment
+            Payment,
+            SubOrder,
+            SubOrderItem,
         ],
         synchronize: true
     }),
