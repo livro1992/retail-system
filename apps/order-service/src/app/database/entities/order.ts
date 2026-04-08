@@ -2,6 +2,7 @@ import { OrderFullfilmentMode, OrderPaymentStatus, OrderStatus, OrderType,  } fr
 import { Column, CreateDateColumn, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { OrderItem } from "./order_item";
 import { Payment } from "./payment";
+import { SubOrder } from "./sub_order";
 
 @Entity()
 export class Order {
@@ -65,11 +66,12 @@ export class Order {
         cascade: true,
         onDelete: "CASCADE"
     })
-    @JoinColumn({
-        name: 'order_id'
-    })
     orderItems: OrderItem[];
 
-    @OneToOne(() => Payment)
-    paymentId: string;
+    @OneToMany(() => SubOrder, (sub) => sub.parentOrder)
+    subOrders: SubOrder[];
+
+    @OneToOne(() => Payment, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'payment_id' })
+    payment: Payment | null;
 }

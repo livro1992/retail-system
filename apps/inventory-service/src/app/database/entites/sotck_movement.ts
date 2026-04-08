@@ -1,29 +1,42 @@
 import { MovementType } from '@retail-system/shared';
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  RelationId,
+} from 'typeorm';
+import { Product } from './products';
 
 @Entity('stock_movements')
 export class StockMovement {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column()
-    productId: string;
+  @ManyToOne(() => Product, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'productId', referencedColumnName: 'productId' })
+  product: Product;
 
-    @Column()
-    marketId: string;
+  @RelationId((m: StockMovement) => m.product)
+  productId: string;
 
-    @Column({ type: 'enum', enum: MovementType })
-    type: MovementType;
+  @Column()
+  marketId: string;
 
-    @Column()
-    quantity: number;
+  @Column({ type: 'enum', enum: MovementType })
+  type: MovementType;
 
-    @Column({ nullable: true })
-    orderId: string;
+  @Column()
+  quantity: number;
 
-    @Column({ nullable: true })
-    reason: string;
+  @Column({ nullable: true })
+  orderId: string;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @Column({ nullable: true })
+  reason: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
 }
