@@ -1,12 +1,18 @@
-import { Body, Controller, Get, HttpException, Inject, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { HttpService } from '@nestjs/axios';
 import { CreateProductDto } from '@retail-system/shared';
 import { firstValueFrom } from 'rxjs';
+import { rethrowDownstreamHttpError } from '../http/rethrow-downstream-http-error';
 import { HTTP_DOWNSTREAM_TIMEOUT_MS, sendRmqWithTimeout } from '../rmq/send-with-timeout';
 
 const inventoryHttpBase =
   process.env.INVENTORY_SERVICE_URL ?? 'http://localhost:3002';
+
+const inventoryDownstreamError = {
+  serviceUnavailableMessage:
+    'Servizio inventario momentaneamente non raggiungibile',
+};
 
 @Controller('inventory')
 export class InventoryController {
@@ -35,17 +41,8 @@ export class InventoryController {
         }),
       );
       return data;
-    } catch (e: any) {
-      if (e.response) {
-        throw new HttpException(e.response.data, e.response.status);
-      }
-      if (e.request) {
-        throw new HttpException(
-          'Servizio inventario momentaneamente non raggiungibile',
-          503,
-        );
-      }
-      throw new HttpException('Errore interno del Gateway', 500);
+    } catch (e) {
+      rethrowDownstreamHttpError(e, inventoryDownstreamError);
     }
   }
 
@@ -60,17 +57,8 @@ export class InventoryController {
         }),
       );
       return data;
-    } catch (e: any) {
-      if (e.response) {
-        throw new HttpException(e.response.data, e.response.status);
-      }
-      if (e.request) {
-        throw new HttpException(
-          'Servizio inventario momentaneamente non raggiungibile',
-          503,
-        );
-      }
-      throw new HttpException('Errore interno del Gateway', 500);
+    } catch (e) {
+      rethrowDownstreamHttpError(e, inventoryDownstreamError);
     }
   }
 
@@ -87,17 +75,8 @@ export class InventoryController {
         }),
       );
       return data;
-    } catch (e: any) {
-      if (e.response) {
-        throw new HttpException(e.response.data, e.response.status);
-      }
-      if (e.request) {
-        throw new HttpException(
-          'Servizio inventario momentaneamente non raggiungibile',
-          503,
-        );
-      }
-      throw new HttpException('Errore interno del Gateway', 500);
+    } catch (e) {
+      rethrowDownstreamHttpError(e, inventoryDownstreamError);
     }
   }
 }
