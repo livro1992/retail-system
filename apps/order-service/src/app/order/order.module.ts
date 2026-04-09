@@ -1,16 +1,24 @@
 import { Module } from "@nestjs/common";
 import { OrderController } from "./order.controller";
 import { OrderService } from "./order.service";
+import { SubOrderService } from "./suborder.service";
+import { CommInventoryService } from "./comm-inventory.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Order } from "../database/entities/order";
 import { OrderItem } from "../database/entities/order_item";
+import { SubOrder } from "../database/entities/sub_order";
+import { SubOrderItem } from "../database/entities/sub_order_item";
+import { Payment } from "../database/entities/payment";
 import { ClientsModule, Transport } from "@nestjs/microservices";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             Order,
-            OrderItem
+            OrderItem,
+            Payment,
+            SubOrder,
+            SubOrderItem,
         ]),
         ClientsModule.register([
             {
@@ -25,7 +33,7 @@ import { ClientsModule, Transport } from "@nestjs/microservices";
         ])
     ],
     controllers: [OrderController],
-    providers: [OrderService],
+    providers: [OrderService, CommInventoryService, SubOrderService],
     exports: [OrderService]
 })
 export class OrderModule {}

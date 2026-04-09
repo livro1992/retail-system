@@ -2,6 +2,7 @@ import { OrderFullfilmentMode, OrderPaymentStatus, OrderStatus, OrderType,  } fr
 import { Column, CreateDateColumn, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { OrderItem } from "./order_item";
 import { Payment } from "./payment";
+import { SubOrder } from "./sub_order";
 
 @Entity()
 export class Order {
@@ -18,25 +19,25 @@ export class Order {
 
     @Column({
         name: 'order_type',
-        type: 'enum',
-        enum: OrderType,
-        default: OrderType.receipt
+        type: 'varchar',
+        length: 64,
+        default: OrderType.receipt,
     })
     orderType: OrderType;
 
     @Column({
         name: 'order_status',
-        type: 'enum',
-        enum: OrderStatus,
-        default: OrderStatus.open
+        type: 'varchar',
+        length: 64,
+        default: OrderStatus.open,
     })
     orderStatus: OrderStatus;
 
     @Column({
         name: 'payment_status',
-        type: 'enum',
-        enum: OrderPaymentStatus,
-        default: OrderPaymentStatus.pending
+        type: 'varchar',
+        length: 64,
+        default: OrderPaymentStatus.pending,
     })
     paymentStatus: OrderPaymentStatus;
 
@@ -55,9 +56,9 @@ export class Order {
 
     @Column({
         name: 'fulfillment_mode',
-        type: 'enum',
-        enum: OrderFullfilmentMode,
-        default: OrderFullfilmentMode.instant
+        type: 'varchar',
+        length: 32,
+        default: OrderFullfilmentMode.shop,
     })
     fulfillmentMode: OrderFullfilmentMode;
 
@@ -65,11 +66,12 @@ export class Order {
         cascade: true,
         onDelete: "CASCADE"
     })
-    @JoinColumn({
-        name: 'order_id'
-    })
     orderItems: OrderItem[];
 
-    @OneToOne(() => Payment)
-    paymentId: string;
+    @OneToMany(() => SubOrder, (sub) => sub.parentOrder)
+    subOrders: SubOrder[];
+
+    @OneToOne(() => Payment, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'payment_id' })
+    payment: Payment | null;
 }

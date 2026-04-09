@@ -44,3 +44,6 @@ Thumbs.db
 .nx/polygraph
 .claude/worktrees
 .claude/settings.local.json
+
+# PM2 log mirror (opzionale; i log principali restano in ~/.pm2/logs)
+logs/*.log

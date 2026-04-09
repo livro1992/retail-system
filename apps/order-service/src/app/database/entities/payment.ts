@@ -27,23 +27,23 @@ export class Payment {
 
     @Column({
         name: 'method',
-        type: 'enum',
-        enum: PaymentMethod,
+        type: 'varchar',
+        length: 64,
     })
     method: PaymentMethod;
 
     @Column({
         name: 'document_type',
-        type: 'enum',
-        enum: PaymentDocumentType
+        type: 'varchar',
+        length: 64,
     })
     documentType: PaymentDocumentType;
 
 
     @Column({
         name: 'status',
-        type: 'enum',
-        enum: PaymentStatus
+        type: 'varchar',
+        length: 64,
     })
     status: PaymentStatus;
 

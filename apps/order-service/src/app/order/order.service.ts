@@ -1,59 +1,66 @@
-import { BadRequestException, GatewayTimeoutException, HttpException, HttpStatus, Inject, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
-import { CreateOrderDto, OrderFullfilmentMode, OrderPaymentStatus, OrderStatus, OrderType } from "@retail-system/shared";
+import {
+    BadRequestException,
+    GatewayTimeoutException,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    NotFoundException,
+    ServiceUnavailableException,
+} from "@nestjs/common";
+import {
+    CreateOrderDto,
+    CreateSubOrderDto,
+    InventoryCommand,
+    OrderFullfilmentMode,
+    OrderPaymentStatus,
+    OrderType,
+    PhysicalSubOrderStatus,
+} from "@retail-system/shared";
 import { Order } from "../database/entities/order";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { OrderItem } from "../database/entities/order_item";
+import { Payment } from "../database/entities/payment";
 import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom, TimeoutError, timeout } from "rxjs";
-
-type InventoryAvailabilityCheckResponse = {
-    available: boolean;
-    items: { 
-        productId: string; 
-        requested: number; 
-        availableQuantity: number; 
-        available: boolean 
-    }[];
-};
+import { SubOrder } from "../database/entities/sub_order";
+import { SubOrderItem } from "../database/entities/sub_order_item";
+import { CommInventoryService } from "./comm-inventory.service";
 
 @Injectable()
 export class OrderService {
     constructor(
         @InjectRepository(Order) private orderRepository: Repository<Order>,
         @InjectRepository(OrderItem) private packageRepository: Repository<OrderItem>,
-        @Inject('INVENTORY_SERVICE') private readonly inventoryClient: ClientProxy
+        @InjectRepository(SubOrder) private subOrderRepository: Repository<SubOrder>,
+        @InjectRepository(SubOrderItem) private subOrderItemRepository: Repository<SubOrderItem>,
+        @InjectRepository(Payment) private paymentRepository: Repository<Payment>,
+        @Inject('INVENTORY_SERVICE') private readonly inventoryClient: ClientProxy,
+        private commInventoryService: CommInventoryService
     ) {}
 
     /**
-     * 
-     * @param order 
-     * @returns 
-     * 
      * ORDERTYPE -> selling
-     * 
-     * 1. Se pago in contanti: controllo disponibilità? No, scalo e basta. Controllo di avere la ricevuta di pagamento e contabilizzo.
-     * 2. Se compro per il magazzino, arrivo: (fase1)
-     *      2.1 fulfillmentMode -> pickup
-     *      2.2 OrderStatus -> open
-     *      2.3 paymentStatus -> pending
-     *      (fase 2)
-     *      2.4 OrderStatus -> reserved/ready
-     *      2.5 paymentStatus -> paid
-     *      (fase 3)
-     *      2.6 se e solo paymentStatus == paid, OrderStatus -> completed
-     *      2.7 scalo in inventario la colonna total e researved delle giacenze
-     * 3. Se compro online è più semplice
-     *      3.1 genero ordine orderStatus -> open
-     *      3.2 effettuo il pagamento, paymentStatus -> paid
-     *      3.3 orderStatus -> ready/shipped/completed
+     * 1. Cassa istantanea: nessun pre-check disponibilità; scalo diretto su inventario.
+     * 2. Altri flussi: check disponibilità opzionale poi riserva giacenza.
+     * Una SubOrder operativa per ordine (righe collegate); suddivisione per reparto si potrà aggiungere in seguito.
      */
     async createOrder(order: CreateOrderDto): Promise<Order> {
         try {
-            //
-            //  Controllo disponibilità prodotti
+            const lineItems = order.orderItems ?? [];
+
+            if (
+                lineItems.length === 0
+                && order.subOrders?.some((s) => (s.items?.length ?? 0) > 0)
+            ) {
+                throw new BadRequestException(
+                    'Righe sub-ordine con orderItemId richiedono righe ordine: crea prima gli articoli o invia sub-ordini senza righe.',
+                );
+            }
+
             if (this._mustCheckAvailability(order)) {
-                const availability = await this._checkInventoryAvailability(order);
+                const availability = await this.commInventoryService.checkInventoryAvailability(order);
                 if (!availability.available) {
                     const unavailableItems = availability.items.filter((item) => !item.available);
                     throw new BadRequestException({
@@ -63,74 +70,270 @@ export class OrderService {
                 }
             }
 
-            //
-            // Se contanti, proseguo
-            if (order.fulfillmentMode === OrderFullfilmentMode.instant) {
-                const paymentCorrect = 
-                    (order.paymentStatus === OrderPaymentStatus.paid) 
-                    && (order.paymentId != null);
+            const hasLineItems = lineItems.length > 0;
+            const paymentIdNormalized = order.paymentId?.trim() || undefined;
+            const effectivePaymentStatus =
+                order.paymentStatus ?? OrderPaymentStatus.pending;
+
+            if (order.fulfillmentMode === OrderFullfilmentMode.shop && hasLineItems) {
+                const paymentCorrect =
+                    (order.paymentStatus === OrderPaymentStatus.paid)
+                    && paymentIdNormalized != null;
 
                 if (!paymentCorrect) {
                     throw new HttpException('Stato di pagamento non conforme', HttpStatus.BAD_REQUEST);
                 }
             }
 
-            //
-            //  
-            const totalSum = order.orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-            const orderItems = order.orderItems.map(p =>
+            const totalSum = lineItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            const orderItems = lineItems.map(p =>
                 this.packageRepository.create({
                     ...p
                 })
             );
-            const query = this.orderRepository.create({
-                ...order,
-                totalAmount: totalSum,
-                orderItems: orderItems
-            });
-            return await this.orderRepository.save(query);
-        } catch (e: any) {
-            if (e instanceof TimeoutError) {
-                throw new GatewayTimeoutException('Inventory service timeout durante verifica disponibilita');
+
+            const { paymentId, orderItems: _dtoItems, subOrders: _subOrdersDto, ...orderFields } = order;
+            let paymentRow: Payment | null = null;
+
+            if (paymentIdNormalized) {
+                const found = await this.paymentRepository.findOne({
+                    where: { paymentId: paymentIdNormalized },
+                });
+                if (!found) {
+                    throw new BadRequestException(`Pagamento ${paymentIdNormalized} non trovato`);
+                }
+                paymentRow = found;
             }
-            if (e?.code === 'ECONNREFUSED' || e?.message?.includes('ECONNREFUSED')) {
+            this._ensurePaidOrderHasPayment(effectivePaymentStatus, paymentRow);
+
+            const query = this.orderRepository.create({
+                ...orderFields,
+                totalAmount: totalSum,
+                orderItems: orderItems,
+                ...(paymentRow ? { payment: paymentRow } : {}),
+            });
+            const saved = await this.orderRepository.save(query);
+
+            try {
+                if (hasLineItems) {
+                    await this._createOperationalSubOrders(saved);
+                } else if (order.subOrders?.length) {
+                    await this._persistVacantSubOrders(saved.orderId, order.subOrders);
+                }
+                await this._applyStockForOrder(saved, order);
+            } catch (inner: unknown) {
+                await this.orderRepository.delete({ orderId: saved.orderId });
+                throw inner;
+            }
+
+            return this.getOrderById(saved.orderId);
+        } catch (e: unknown) {
+            if (e instanceof TimeoutError) {
+                throw new GatewayTimeoutException('Inventory service timeout durante operazione su inventario');
+            }
+            if (this._isConnectionRefused(e)) {
                 throw new ServiceUnavailableException('Inventory service non raggiungibile');
             }
-            if (e?.response) {
+            if (e instanceof HttpException || e instanceof BadRequestException) {
+                throw e;
+            }
+            const err = e as { 
+                response?: unknown; 
+                status?: number; 
+                message?: string 
+            };
+
+            if (err?.response !== undefined) {
                 throw new HttpException(
-                    e.response,
-                    e.status ?? e.response.status ?? 500
+                    err.response,
+                    err.status ?? HttpStatus.INTERNAL_SERVER_ERROR
                 );
-            } 
-            throw new HttpException('Errore interno di creazione ordine', 500);
+            }
+            throw new HttpException('Errore interno di creazione ordine', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private _isConnectionRefused(e: unknown): boolean {
+        const err = e as { code?: string; message?: string };
+        return err?.code === 'ECONNREFUSED' || Boolean(err?.message?.includes('ECONNREFUSED'));
+    }
+
+    /**
+     * `payment_status` non può essere `paid` se `payment_id` è assente (nessun Payment collegato).
+     */
+    private _ensurePaidOrderHasPayment(
+        paymentStatus: OrderPaymentStatus | undefined,
+        payment: Payment | null | undefined,
+    ): void {
+        if (paymentStatus !== OrderPaymentStatus.paid) {
+            return;
+        }
+        const id = payment?.paymentId?.trim();
+
+        if (id == null || id === '') {
+            throw new BadRequestException(
+                'payment_status non può essere paid finché payment_id è vuoto: creare il Payment e passare paymentId.',
+            );
+        }
+    }
+
+    private async _createOperationalSubOrders(order: Order): Promise<void> {
+        const full = await this.orderRepository.findOne({
+            where: { orderId: order.orderId },
+            relations: { orderItems: true },
+        });
+        if (!full?.orderItems?.length) {
+            return;
+        }
+
+        const productIds = full.orderItems.map((i) => i.productId);
+        await firstValueFrom(
+            this.inventoryClient.send(
+                { cmd: InventoryCommand.validateOrderProducts },
+                { productIds }
+            ).pipe(timeout(2500))
+        );
+
+        const isPaid = full.paymentStatus === OrderPaymentStatus.paid;
+
+        const sub = this.subOrderRepository.create({
+            parentOrderId: full.orderId,
+            physicalStatus: PhysicalSubOrderStatus.PENDING,
+            isPaid,
+            items: full.orderItems.map((line) =>
+                this.subOrderItemRepository.create({
+                    orderItemId: line.orderItemId,
+                    quantity: line.quantity,
+                }),
+            ),
+        });
+        await this.subOrderRepository.save(sub);
+    }
+
+    /** Sub-ordini inviati con ordine vacante: solo gusci (senza righe SubOrderItem) finché non esistono OrderItem. */
+    private async _persistVacantSubOrders(
+        orderId: string,
+        subOrders: CreateSubOrderDto[],
+    ): Promise<void> {
+        for (const sub of subOrders) {
+            const { parentOrderId: _ignoredParent, items = [], ...rest } = sub;
+            const entity = this.subOrderRepository.create({
+                ...rest,
+                parentOrderId: orderId,
+                items: items.map((line) =>
+                    this.subOrderItemRepository.create({
+                        orderItemId: line.orderItemId,
+                        quantity: line.quantity,
+                    }),
+                ),
+            });
+            await this.subOrderRepository.save(entity);
+        }
+    }
+
+    private async _applyStockForOrder(persisted: Order, originalDto: CreateOrderDto): Promise<void> {
+        const full = await this.orderRepository.findOne({
+            where: { orderId: persisted.orderId },
+            relations: { orderItems: true },
+        });
+        if (!full?.orderItems?.length) {
+            return;
+        }
+        const items = full.orderItems.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+        }));
+        const isInstant =
+            originalDto.orderType === OrderType.selling
+            && originalDto.fulfillmentMode === OrderFullfilmentMode.shop;
+
+        if (isInstant) {
+            await firstValueFrom(
+                this.inventoryClient.send(
+                    { cmd: InventoryCommand.deductInstantSale },
+                    {
+                        marketId: full.marketId,
+                        orderId: full.orderId,
+                        items,
+                    }
+                ).pipe(timeout(2500))
+            );
+        } else {
+            await firstValueFrom(
+                this.inventoryClient.send(
+                    { cmd: InventoryCommand.reserveStockForOrder },
+                    {
+                        marketId: full.marketId,
+                        orderId: full.orderId,
+                        items,
+                    }
+                ).pipe(timeout(2500))
+            );
         }
     }
 
     private _mustCheckAvailability(order: CreateOrderDto): boolean {
-        // Vendita in contanti "istantanea": scalo diretto senza pre-check.
-        return !(order.orderType === OrderType.selling && order.fulfillmentMode === OrderFullfilmentMode.instant);
+        return !(order.orderType === OrderType.selling && order.fulfillmentMode === OrderFullfilmentMode.shop);
     }
 
-    private async _checkInventoryAvailability(order: CreateOrderDto): Promise<InventoryAvailabilityCheckResponse> {
-        return await firstValueFrom(
-            this.inventoryClient.send(
-                { cmd: 'check_availability' },
-                {
-                    marketId: order.marketId,
-                    items: order.orderItems.map((item) => ({
-                        productId: item.productId,
-                        quantity: item.quantity
-                    }))
-                }
-            ).pipe(timeout(2500))
-        ) as InventoryAvailabilityCheckResponse;
-    }
+    /**
+     * In cassa: associa il suborder all’ordine e valida che ogni riga suborder punti a OrderItem
+     * già appartenenti a questo ordine (dati prodotto/prezzo solo su OrderItem).
+     * Ricalcola `totalAmount` dalle righe ordine.
+     */
+    async materializeSubOrderToOrderItems(
+        orderId: string,
+        subOrderId: string,
+    ): Promise<Order> {
+        const sub = await this.subOrderRepository.findOne({
+            where: { subOrderId },
+            relations: { items: true },
+        });
+        if (!sub) {
+            throw new NotFoundException(`Sub-ordine ${subOrderId} non trovato`);
+        }
+        if (sub.parentOrderId != null && sub.parentOrderId !== orderId) {
+            throw new BadRequestException(
+                'Sub-ordine già associato ad un altro ordine',
+            );
+        }
 
+        for (const row of sub.items ?? []) {
+            const oi = await this.packageRepository.findOne({
+                where: { orderItemId: row.orderItemId },
+            });
+            if (!oi) {
+                throw new BadRequestException(
+                    `OrderItem ${row.orderItemId} non trovato`,
+                );
+            }
+            if (oi.orderId !== orderId) {
+                throw new BadRequestException(
+                    `La riga sub-ordine ${row.subOrderItemId} punta a un articolo che non appartiene all'ordine ${orderId}`,
+                );
+            }
+        }
+
+        sub.parentOrderId = orderId;
+        await this.subOrderRepository.save(sub);
+
+        const order = await this.getOrderById(orderId);
+        const total = (order.orderItems ?? []).reduce(
+            (acc, i) => acc + Number(i.price) * i.quantity,
+            0,
+        );
+        order.totalAmount = total;
+        await this.orderRepository.save(order);
+
+        return this.getOrderById(orderId);
+    }
 
     async getAllOrders(): Promise<Order[]> {
         return this.orderRepository.find({
             relations: {
-                orderItems: true
+                orderItems: true,
+                subOrders: { items: true },
+                payment: true,
             }
         });
     }
@@ -139,7 +342,9 @@ export class OrderService {
         const order = await this.orderRepository.findOne({
             where: { orderId },
             relations: {
-                orderItems: true
+                orderItems: true,
+                subOrders: { items: true },
+                payment: true,
             }
         });
 
@@ -152,13 +357,64 @@ export class OrderService {
 
     async updateOrder(orderId: string, payload: Partial<CreateOrderDto>): Promise<Order> {
         const order = await this.getOrderById(orderId);
-        const merged = this.orderRepository.merge(order, payload);
-        return this.orderRepository.save(merged);
+        const wasPaid = order.paymentStatus === OrderPaymentStatus.paid;
+        const { paymentId, ...rest } = payload;
+        const paymentIdNormalized = (paymentId !== undefined) ? (paymentId?.trim() || undefined) : undefined;
+        const merged = this.orderRepository.merge(order, rest);
+
+        if (paymentId !== undefined) {
+            if (paymentIdNormalized) {
+                const paymentRow = await this.paymentRepository.findOne({
+                    where: { paymentId: paymentIdNormalized },
+                });
+                if (!paymentRow) {
+                    throw new BadRequestException(`Pagamento ${paymentIdNormalized} non trovato`);
+                }
+                merged.payment = paymentRow;
+            } else {
+                merged.payment = null;
+            }
+        }
+        const effectiveStatus =
+            merged.paymentStatus ?? OrderPaymentStatus.pending;
+        this._ensurePaidOrderHasPayment(effectiveStatus, merged.payment);
+
+        const saved = await this.orderRepository.save(merged);
+        const isPaid = saved.paymentStatus === OrderPaymentStatus.paid;
+
+        if (!wasPaid && isPaid) {
+            await this.subOrderRepository.update(
+                { parentOrderId: orderId },
+                { isPaid: true },
+            );
+        } else if (wasPaid && !isPaid) {
+            await this.subOrderRepository.update(
+                { parentOrderId: orderId },
+                { isPaid: false },
+            );
+        }
+        return this.getOrderById(orderId);
     }
 
     async deleteOrder(orderId: string): Promise<{ message: string }> {
-        const order = await this.getOrderById(orderId);
-        await this.orderRepository.remove(order);
+        await this.getOrderById(orderId);
+        try {
+            await firstValueFrom(
+                this.inventoryClient.send(
+                    { cmd: InventoryCommand.releaseStockForOrder },
+                    { orderId }
+                ).pipe(timeout(2500))
+            );
+        } catch (e: unknown) {
+            if (e instanceof TimeoutError) {
+                throw new GatewayTimeoutException('Inventory service timeout durante rilascio giacenza');
+            }
+            if (this._isConnectionRefused(e)) {
+                throw new ServiceUnavailableException('Inventory service non raggiungibile');
+            }
+            throw e;
+        }
+        await this.orderRepository.delete(orderId);
         return { message: `Order ${orderId} deleted` };
     }
 }

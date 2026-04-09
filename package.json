@@ -2,7 +2,14 @@
   "name": "@retail-system/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 delete retail-api-gateway retail-auth-service retail-order-service retail-inventory-service",
+    "pm2:restart": "pm2 restart ecosystem.config.cjs",
+    "pm2:logs": "pm2 logs",
+    "pm2:monit": "pm2 monit",
+    "pm2:status": "pm2 status"
+  },
   "private": true,
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -46,6 +53,7 @@
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
     "nx": "22.4.5",
+    "pm2": "^6.0.14",
     "prettier": "~3.6.2",
     "tslib": "^2.3.0",
     "typescript": "~5.9.2",
