@@ -13,7 +13,7 @@ export class SubOrderItem {
   @PrimaryGeneratedColumn('uuid', { name: 'sub_order_item_id' })
   subOrderItemId: string;
 
-  @Column({ name: 'sub_order_id', type: 'uuid' })
+  @Column({ name: 'sub_order_id' })
   subOrderId: string;
 
   @ManyToOne(() => SubOrder, (s) => s.items, { onDelete: 'CASCADE' })
@@ -22,10 +22,6 @@ export class SubOrderItem {
 
   @Column({ name: 'order_item_id', type: 'uuid' })
   orderItemId: string;
-
-  @ManyToOne(() => OrderItem, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'order_item_id' })
-  orderItem: OrderItem;
 
   @Column({ type: 'int' })
   quantity: number;

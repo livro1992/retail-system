@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { User } from "../database/entities/user";
-import { ApiResponse, SignInDto, UserDto, UserRole } from "@retail-system/shared";
+import { ApiResponse, GetUserDto, SignInDto, UserDto, UserRole } from "@retail-system/shared";
 import { HttpStatusCode } from "axios";
 import * as bcrypt from 'bcrypt';
 import { AuthService } from "../auth/auth_service";
@@ -14,7 +14,9 @@ export class UserService {
         private readonly authService: AuthService
     ) {}
 
-    async signIn(credentials: SignInDto): Promise<ApiResponse<{ access_token: string }>> {
+    async signIn(credentials: SignInDto): Promise<
+        ApiResponse<{ access_token: string; user: GetUserDto }>
+    > {
         const user = await this.userRepository.findOne({
             where: {
                 email: credentials.email
@@ -34,12 +36,20 @@ export class UserService {
         const hashedPassword = await bcrypt.compare(credentials.password, user.password);
 
         if(hashedPassword == true) {
-            const token = this.authService.generateJwtToken(user);
+            const { access_token } = this.authService.generateJwtToken(user);
+            const userInfo: GetUserDto = {
+                userId: user.userId,
+                email: user.email,
+                role: user.role
+            };
 
             return {
                 success: true,
-                data: token
-            }
+                data: {
+                    access_token,
+                    user: userInfo,
+                },
+            };
         } else {
             return {
                 success: false,

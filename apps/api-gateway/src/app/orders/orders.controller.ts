@@ -11,14 +11,13 @@ import { HTTP_DOWNSTREAM_TIMEOUT_MS, sendRmqWithTimeout } from '../rmq/send-with
 @Controller('orders')
 export class OrdersController {
     constructor(
-         @Inject('ORDERS_SERVICE') private client: ClientProxy,
-         private readonly httpService: HttpService
+        @Inject('ORDERS_SERVICE') private client: ClientProxy,
+        private readonly httpService: HttpService
     ) {}
 
     @Get('status')
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async getStatusOrderService() {
-        // Asynchronous request/response via message broker (RMQ)
         return sendRmqWithTimeout(this.client, { cmd: OrdersCommand.checkStatus }, {});
     }
 

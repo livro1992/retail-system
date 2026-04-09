@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import {
     CreateOrderDto,
+    CreateSubOrderDto,
     InventoryCommand,
     OrderFullfilmentMode,
     OrderPaymentStatus,
@@ -25,16 +26,7 @@ import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom, TimeoutError, timeout } from "rxjs";
 import { SubOrder } from "../database/entities/sub_order";
 import { SubOrderItem } from "../database/entities/sub_order_item";
-
-type InventoryAvailabilityCheckResponse = {
-    available: boolean;
-    items: {
-        productId: string;
-        requested: number;
-        availableQuantity: number;
-        available: boolean;
-    }[];
-};
+import { CommInventoryService } from "./comm-inventory.service";
 
 @Injectable()
 export class OrderService {
@@ -44,7 +36,8 @@ export class OrderService {
         @InjectRepository(SubOrder) private subOrderRepository: Repository<SubOrder>,
         @InjectRepository(SubOrderItem) private subOrderItemRepository: Repository<SubOrderItem>,
         @InjectRepository(Payment) private paymentRepository: Repository<Payment>,
-        @Inject('INVENTORY_SERVICE') private readonly inventoryClient: ClientProxy
+        @Inject('INVENTORY_SERVICE') private readonly inventoryClient: ClientProxy,
+        private commInventoryService: CommInventoryService
     ) {}
 
     /**
@@ -55,8 +48,19 @@ export class OrderService {
      */
     async createOrder(order: CreateOrderDto): Promise<Order> {
         try {
+            const lineItems = order.orderItems ?? [];
+
+            if (
+                lineItems.length === 0
+                && order.subOrders?.some((s) => (s.items?.length ?? 0) > 0)
+            ) {
+                throw new BadRequestException(
+                    'Righe sub-ordine con orderItemId richiedono righe ordine: crea prima gli articoli o invia sub-ordini senza righe.',
+                );
+            }
+
             if (this._mustCheckAvailability(order)) {
-                const availability = await this._checkInventoryAvailability(order);
+                const availability = await this.commInventoryService.checkInventoryAvailability(order);
                 if (!availability.available) {
                     const unavailableItems = availability.items.filter((item) => !item.available);
                     throw new BadRequestException({
@@ -66,43 +70,56 @@ export class OrderService {
                 }
             }
 
-            if (order.fulfillmentMode === OrderFullfilmentMode.instant) {
+            const hasLineItems = lineItems.length > 0;
+            const paymentIdNormalized = order.paymentId?.trim() || undefined;
+            const effectivePaymentStatus =
+                order.paymentStatus ?? OrderPaymentStatus.pending;
+
+            if (order.fulfillmentMode === OrderFullfilmentMode.shop && hasLineItems) {
                 const paymentCorrect =
                     (order.paymentStatus === OrderPaymentStatus.paid)
-                    && (order.paymentId != null);
+                    && paymentIdNormalized != null;
 
                 if (!paymentCorrect) {
                     throw new HttpException('Stato di pagamento non conforme', HttpStatus.BAD_REQUEST);
                 }
             }
 
-            const totalSum = order.orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-            const orderItems = order.orderItems.map(p =>
+            const totalSum = lineItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            const orderItems = lineItems.map(p =>
                 this.packageRepository.create({
                     ...p
                 })
             );
 
-            const { paymentId, orderItems: _dtoItems, ...orderFields } = order;
-            if (paymentId) {
-                const paymentRow = await this.paymentRepository.findOne({
-                    where: { paymentId },
+            const { paymentId, orderItems: _dtoItems, subOrders: _subOrdersDto, ...orderFields } = order;
+            let paymentRow: Payment | null = null;
+
+            if (paymentIdNormalized) {
+                const found = await this.paymentRepository.findOne({
+                    where: { paymentId: paymentIdNormalized },
                 });
-                if (!paymentRow) {
-                    throw new BadRequestException(`Pagamento ${paymentId} non trovato`);
+                if (!found) {
+                    throw new BadRequestException(`Pagamento ${paymentIdNormalized} non trovato`);
                 }
+                paymentRow = found;
             }
+            this._ensurePaidOrderHasPayment(effectivePaymentStatus, paymentRow);
 
             const query = this.orderRepository.create({
                 ...orderFields,
                 totalAmount: totalSum,
                 orderItems: orderItems,
-                ...(paymentId ? { payment: { paymentId } as Payment } : {}),
+                ...(paymentRow ? { payment: paymentRow } : {}),
             });
             const saved = await this.orderRepository.save(query);
 
             try {
-                await this._createOperationalSubOrders(saved);
+                if (hasLineItems) {
+                    await this._createOperationalSubOrders(saved);
+                } else if (order.subOrders?.length) {
+                    await this._persistVacantSubOrders(saved.orderId, order.subOrders);
+                }
                 await this._applyStockForOrder(saved, order);
             } catch (inner: unknown) {
                 await this.orderRepository.delete({ orderId: saved.orderId });
@@ -120,7 +137,12 @@ export class OrderService {
             if (e instanceof HttpException || e instanceof BadRequestException) {
                 throw e;
             }
-            const err = e as { response?: unknown; status?: number; message?: string };
+            const err = e as { 
+                response?: unknown; 
+                status?: number; 
+                message?: string 
+            };
+
             if (err?.response !== undefined) {
                 throw new HttpException(
                     err.response,
@@ -134,6 +156,25 @@ export class OrderService {
     private _isConnectionRefused(e: unknown): boolean {
         const err = e as { code?: string; message?: string };
         return err?.code === 'ECONNREFUSED' || Boolean(err?.message?.includes('ECONNREFUSED'));
+    }
+
+    /**
+     * `payment_status` non può essere `paid` se `payment_id` è assente (nessun Payment collegato).
+     */
+    private _ensurePaidOrderHasPayment(
+        paymentStatus: OrderPaymentStatus | undefined,
+        payment: Payment | null | undefined,
+    ): void {
+        if (paymentStatus !== OrderPaymentStatus.paid) {
+            return;
+        }
+        const id = payment?.paymentId?.trim();
+
+        if (id == null || id === '') {
+            throw new BadRequestException(
+                'payment_status non può essere paid finché payment_id è vuoto: creare il Payment e passare paymentId.',
+            );
+        }
     }
 
     private async _createOperationalSubOrders(order: Order): Promise<void> {
@@ -169,6 +210,27 @@ export class OrderService {
         await this.subOrderRepository.save(sub);
     }
 
+    /** Sub-ordini inviati con ordine vacante: solo gusci (senza righe SubOrderItem) finché non esistono OrderItem. */
+    private async _persistVacantSubOrders(
+        orderId: string,
+        subOrders: CreateSubOrderDto[],
+    ): Promise<void> {
+        for (const sub of subOrders) {
+            const { parentOrderId: _ignoredParent, items = [], ...rest } = sub;
+            const entity = this.subOrderRepository.create({
+                ...rest,
+                parentOrderId: orderId,
+                items: items.map((line) =>
+                    this.subOrderItemRepository.create({
+                        orderItemId: line.orderItemId,
+                        quantity: line.quantity,
+                    }),
+                ),
+            });
+            await this.subOrderRepository.save(entity);
+        }
+    }
+
     private async _applyStockForOrder(persisted: Order, originalDto: CreateOrderDto): Promise<void> {
         const full = await this.orderRepository.findOne({
             where: { orderId: persisted.orderId },
@@ -183,7 +245,7 @@ export class OrderService {
         }));
         const isInstant =
             originalDto.orderType === OrderType.selling
-            && originalDto.fulfillmentMode === OrderFullfilmentMode.instant;
+            && originalDto.fulfillmentMode === OrderFullfilmentMode.shop;
 
         if (isInstant) {
             await firstValueFrom(
@@ -211,22 +273,59 @@ export class OrderService {
     }
 
     private _mustCheckAvailability(order: CreateOrderDto): boolean {
-        return !(order.orderType === OrderType.selling && order.fulfillmentMode === OrderFullfilmentMode.instant);
+        return !(order.orderType === OrderType.selling && order.fulfillmentMode === OrderFullfilmentMode.shop);
     }
 
-    private async _checkInventoryAvailability(order: CreateOrderDto): Promise<InventoryAvailabilityCheckResponse> {
-        return await firstValueFrom(
-            this.inventoryClient.send(
-                { cmd: InventoryCommand.checkAvailability },
-                {
-                    marketId: order.marketId,
-                    items: order.orderItems.map((item) => ({
-                        productId: item.productId,
-                        quantity: item.quantity
-                    }))
-                }
-            ).pipe(timeout(2500))
-        ) as InventoryAvailabilityCheckResponse;
+    /**
+     * In cassa: associa il suborder all’ordine e valida che ogni riga suborder punti a OrderItem
+     * già appartenenti a questo ordine (dati prodotto/prezzo solo su OrderItem).
+     * Ricalcola `totalAmount` dalle righe ordine.
+     */
+    async materializeSubOrderToOrderItems(
+        orderId: string,
+        subOrderId: string,
+    ): Promise<Order> {
+        const sub = await this.subOrderRepository.findOne({
+            where: { subOrderId },
+            relations: { items: true },
+        });
+        if (!sub) {
+            throw new NotFoundException(`Sub-ordine ${subOrderId} non trovato`);
+        }
+        if (sub.parentOrderId != null && sub.parentOrderId !== orderId) {
+            throw new BadRequestException(
+                'Sub-ordine già associato ad un altro ordine',
+            );
+        }
+
+        for (const row of sub.items ?? []) {
+            const oi = await this.packageRepository.findOne({
+                where: { orderItemId: row.orderItemId },
+            });
+            if (!oi) {
+                throw new BadRequestException(
+                    `OrderItem ${row.orderItemId} non trovato`,
+                );
+            }
+            if (oi.orderId !== orderId) {
+                throw new BadRequestException(
+                    `La riga sub-ordine ${row.subOrderItemId} punta a un articolo che non appartiene all'ordine ${orderId}`,
+                );
+            }
+        }
+
+        sub.parentOrderId = orderId;
+        await this.subOrderRepository.save(sub);
+
+        const order = await this.getOrderById(orderId);
+        const total = (order.orderItems ?? []).reduce(
+            (acc, i) => acc + Number(i.price) * i.quantity,
+            0,
+        );
+        order.totalAmount = total;
+        await this.orderRepository.save(order);
+
+        return this.getOrderById(orderId);
     }
 
     async getAllOrders(): Promise<Order[]> {
@@ -260,22 +359,29 @@ export class OrderService {
         const order = await this.getOrderById(orderId);
         const wasPaid = order.paymentStatus === OrderPaymentStatus.paid;
         const { paymentId, ...rest } = payload;
+        const paymentIdNormalized = (paymentId !== undefined) ? (paymentId?.trim() || undefined) : undefined;
         const merged = this.orderRepository.merge(order, rest);
+
         if (paymentId !== undefined) {
-            if (paymentId) {
+            if (paymentIdNormalized) {
                 const paymentRow = await this.paymentRepository.findOne({
-                    where: { paymentId },
+                    where: { paymentId: paymentIdNormalized },
                 });
                 if (!paymentRow) {
-                    throw new BadRequestException(`Pagamento ${paymentId} non trovato`);
+                    throw new BadRequestException(`Pagamento ${paymentIdNormalized} non trovato`);
                 }
                 merged.payment = paymentRow;
             } else {
                 merged.payment = null;
             }
         }
+        const effectiveStatus =
+            merged.paymentStatus ?? OrderPaymentStatus.pending;
+        this._ensurePaidOrderHasPayment(effectiveStatus, merged.payment);
+
         const saved = await this.orderRepository.save(merged);
         const isPaid = saved.paymentStatus === OrderPaymentStatus.paid;
+
         if (!wasPaid && isPaid) {
             await this.subOrderRepository.update(
                 { parentOrderId: orderId },

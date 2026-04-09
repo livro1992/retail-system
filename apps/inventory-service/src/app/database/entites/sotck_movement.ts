@@ -25,7 +25,7 @@ export class StockMovement {
   @Column()
   marketId: string;
 
-  @Column({ type: 'enum', enum: MovementType })
+  @Column({ type: 'varchar', length: 64 })
   type: MovementType;
 
   @Column()

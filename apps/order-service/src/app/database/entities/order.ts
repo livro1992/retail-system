@@ -19,25 +19,25 @@ export class Order {
 
     @Column({
         name: 'order_type',
-        type: 'enum',
-        enum: OrderType,
-        default: OrderType.receipt
+        type: 'varchar',
+        length: 64,
+        default: OrderType.receipt,
     })
     orderType: OrderType;
 
     @Column({
         name: 'order_status',
-        type: 'enum',
-        enum: OrderStatus,
-        default: OrderStatus.open
+        type: 'varchar',
+        length: 64,
+        default: OrderStatus.open,
     })
     orderStatus: OrderStatus;
 
     @Column({
         name: 'payment_status',
-        type: 'enum',
-        enum: OrderPaymentStatus,
-        default: OrderPaymentStatus.pending
+        type: 'varchar',
+        length: 64,
+        default: OrderPaymentStatus.pending,
     })
     paymentStatus: OrderPaymentStatus;
 
@@ -56,9 +56,9 @@ export class Order {
 
     @Column({
         name: 'fulfillment_mode',
-        type: 'enum',
-        enum: OrderFullfilmentMode,
-        default: OrderFullfilmentMode.instant
+        type: 'varchar',
+        length: 32,
+        default: OrderFullfilmentMode.shop,
     })
     fulfillmentMode: OrderFullfilmentMode;
 

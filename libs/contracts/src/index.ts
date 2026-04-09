@@ -1,6 +1,7 @@
 export * from './lib/constants/user/user_roles';
 export * from './lib/communication_commands/auth_commands';
 export * from './lib/dto/user/user.dto';
+export * from './lib/dto/user/get-user.dto';
 export * from './lib/interface/api_response';
 export * from './lib/dto/user/update_user.dto';
 export * from './lib/dto/user/sign_in.dto';
@@ -16,6 +17,9 @@ export * from './lib/constants/orders/payment_document_type';
 export * from './lib/constants/orders/payment_status';
 export * from './lib/dto/orders/create-order.dto';
 export * from './lib/dto/orders/create-order-item.dto';
+export * from './lib/dto/orders/create-sub-order-item.dto';
+export * from './lib/dto/orders/create-sub-order.dto';
+export * from './lib/dto/orders/update-sub-order.dto';
 export * from './lib/constants/orders/order_fullfilmode';
 export * from './lib/constants/orders/physical_sub_order_status';
 export * from './lib/constants/inventory/movement_type';

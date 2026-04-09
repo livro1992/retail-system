@@ -1,5 +1,4 @@
 export enum OrderFullfilmentMode {
-    instant = 'instant',
+    shop = 'shop',
     online = 'online',
-    pickup = 'pickup'
 }

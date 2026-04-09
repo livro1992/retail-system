@@ -17,6 +17,13 @@ export class SubOrder {
   @PrimaryGeneratedColumn('uuid', { name: 'sub_order_id' })
   subOrderId: string;
 
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+
   @Column({ name: 'parent_order_id', type: 'uuid', nullable: true })
   parentOrderId: string | null;
 
@@ -29,20 +36,14 @@ export class SubOrder {
 
   @Column({
     name: 'physical_status',
-    type: 'enum',
-    enum: PhysicalSubOrderStatus,
+    type: 'varchar',
+    length: 64,
     default: PhysicalSubOrderStatus.PENDING,
   })
   physicalStatus: PhysicalSubOrderStatus;
 
   @Column({ name: 'is_paid', default: false })
   isPaid: boolean;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 
   @OneToMany(() => SubOrderItem, (row) => row.subOrder, { cascade: ['insert', 'update'] })
   items: SubOrderItem[];

@@ -1,6 +1,6 @@
 export enum PaymentMethod {
     cash = 'CASH',
-    eCard = 'E_CARD',
+    electronic = 'ELECTRONIC',
     bonifico = 'BONIFICO',
     riba = 'RIBA'
 }

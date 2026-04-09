@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { OrderController } from "./order.controller";
 import { OrderService } from "./order.service";
+import { SubOrderService } from "./suborder.service";
+import { CommInventoryService } from "./comm-inventory.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Order } from "../database/entities/order";
 import { OrderItem } from "../database/entities/order_item";
@@ -31,7 +33,7 @@ import { ClientsModule, Transport } from "@nestjs/microservices";
         ])
     ],
     controllers: [OrderController],
-    providers: [OrderService],
+    providers: [OrderService, CommInventoryService, SubOrderService],
     exports: [OrderService]
 })
 export class OrderModule {}

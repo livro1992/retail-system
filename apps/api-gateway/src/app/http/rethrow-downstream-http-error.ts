@@ -23,8 +23,7 @@ export function rethrowDownstreamHttpError(
     typeof options === 'string'
       ? { serviceUnavailableMessage: options }
       : options;
-  const internal =
-    opts.internalMessage ?? DEFAULT_GATEWAY_INTERNAL_ERROR;
+  const internal = opts.internalMessage ?? DEFAULT_GATEWAY_INTERNAL_ERROR;
 
   if (isAxiosError(error)) {
     if (error.response) {

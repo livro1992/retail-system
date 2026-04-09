@@ -36,10 +36,7 @@ export class OrderItem {
     @ManyToOne(() => Order, (order) => order.orderItems, {
         onDelete: 'CASCADE'
     })
-    @JoinColumn({
-        name: 'order_id',
-        referencedColumnName: 'order_id',
-    })
+    @JoinColumn({ name: 'order_id' })
     order: Order;
 
     @RelationId((item: OrderItem) => item.order)

@@ -1,14 +1,47 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { CreateOrderDto } from '@retail-system/shared';
+import {
+    CreateOrderDto,
+    CreateSubOrderDto,
+    UpdateSubOrderDto,
+} from '@retail-system/shared';
 import { OrderService } from './order.service';
+import { SubOrderService } from './suborder.service';
 
 @Controller('order')
 export class OrderController {
-    constructor(private readonly orderService: OrderService) {}
+    constructor(
+        private readonly orderService: OrderService,
+        private readonly suborderService: SubOrderService
+    ) {}
 
     @Post()
     createOrder(@Body() orderDto: CreateOrderDto) {
         return this.orderService.createOrder(orderDto);
+    }
+
+    @Post('suborder')
+    createSuborder(@Body() subOrder: CreateSubOrderDto) {
+        return this.suborderService.createSubOrder(subOrder);
+    }
+
+    @Put('suborder/:subOrderId')
+    updateSuborder(
+        @Param('subOrderId') subOrderId: string,
+        @Body() dto: UpdateSubOrderDto,
+    ) {
+        return this.suborderService.updateSubOrder(subOrderId, dto);
+    }
+
+    /** Collega il suborder all’ordine (cassa): le righe suborder devono già riferire OrderItem di questo ordine. */
+    @Post(':orderId/suborder/:subOrderId/materialize')
+    materializeSubOrderToOrderItems(
+        @Param('orderId') orderId: string,
+        @Param('subOrderId') subOrderId: string,
+    ) {
+        return this.orderService.materializeSubOrderToOrderItems(
+            orderId,
+            subOrderId,
+        );
     }
 
     @Get()
