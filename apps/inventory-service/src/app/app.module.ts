@@ -5,7 +5,6 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DatabaseModule } from './database/database.module';
 import { Product } from './database/entites/products';
 import { Stock } from './database/entites/stock';
 import { StockMovement } from './database/entites/sotck_movement';
@@ -36,7 +35,6 @@ import { InventoryModule } from './inventory/inventory.module';
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' },
     }),
-    DatabaseModule,
     InventoryModule,
     ClientsModule.register([
       {
