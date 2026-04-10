@@ -19,7 +19,7 @@ import { ConfigModule } from '@nestjs/config';
         name: 'AUTHENTICATION_SERVICE',
         transport: Transport.RMQ,
         options: {
-          urls: ['amqp://localhost:5672'],
+          urls: [process.env.AMQP_URL ?? 'amqp://localhost:5672'],
           queue: 'auth_queue',
           queueOptions: { durable: true },
         },
@@ -27,11 +27,11 @@ import { ConfigModule } from '@nestjs/config';
     ]),
     TypeOrmModule.forRoot({
         type: 'postgres',
-        host: 'localhost',
-        port: 5432,
-        username: 'postgres',
-        password: 'postgres',
-        database: 'auth_db',
+        host: process.env.DB_HOST ?? 'localhost',
+        port: parseInt(process.env.DB_PORT ?? '5432', 10),
+        username: process.env.DB_USERNAME ?? 'postgres',
+        password: process.env.DB_PASSWORD ?? 'postgres',
+        database: process.env.DB_DATABASE ?? 'auth_db',
         entities: [
             User
         ],

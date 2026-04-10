@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { RolesAuthGuard } from '../auth/guards/roles-auth-guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth-guard';
 import { ClientProxy } from '@nestjs/microservices';
-import { CreateOrderDto, OrdersCommand } from '@retail-system/shared';
+import { CreateOrderDto, CreateSubOrderDto, OrdersCommand } from '@retail-system/shared';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { rethrowDownstreamHttpError } from '../http/rethrow-downstream-http-error';
 import { HTTP_DOWNSTREAM_TIMEOUT_MS, sendRmqWithTimeout } from '../rmq/send-with-timeout';
+import { orderServiceBaseUrl } from './order-service-base-url';
 
 @Controller('orders')
 export class OrdersController {
@@ -28,7 +29,7 @@ export class OrdersController {
         try {
             // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
-                this.httpService.post('http://localhost:3001/order', orderDto, {
+                this.httpService.post(`${orderServiceBaseUrl}/order`, orderDto, {
                     timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
                 })
             );
@@ -40,4 +41,69 @@ export class OrdersController {
             });
         }
     }
+
+    @Put('update/:id')
+    @UseGuards(JwtAuthGuard, RolesAuthGuard)
+    async updateOrder(
+        @Param('id') id: string,
+        @Body() orderDto: Partial<CreateOrderDto>,
+    ) {
+        try {
+            const { data } = await firstValueFrom(
+                this.httpService.put(
+                    `${orderServiceBaseUrl}/order/${id}`,
+                    orderDto,
+                    { timeout: HTTP_DOWNSTREAM_TIMEOUT_MS },
+                ),
+            );
+            return data;
+        } catch (e) {
+            rethrowDownstreamHttpError(e, {
+                serviceUnavailableMessage:
+                    'Servizio Ordini momentaneamente non raggiungibile',
+            });
+        }
+    }
+
+    async createSubOrder(@Body() subOrder: CreateSubOrderDto) {
+        try {
+            // Synchronous call: API Gateway waits for HTTP response
+            const { data } = await firstValueFrom(
+                this.httpService.post(`${orderServiceBaseUrl}/order/suborder`, subOrder, {
+                    timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+                })
+            );
+            return data;
+        } catch (e) {
+            rethrowDownstreamHttpError(e, {
+                serviceUnavailableMessage:
+                    'Servizio Ordini momentaneamente non raggiungibile',
+            });
+        }
+    }
+
+    @Post('order/:orderId/suborder/:subOrderId/materialize')
+    @UseGuards(JwtAuthGuard, RolesAuthGuard)
+    async materializeSubOrderToOrderItems(
+        @Param('orderId') orderId: string,
+        @Param('subOrderId') subOrderId: string,
+    ) {
+        try {
+            const { data } = await firstValueFrom(
+                this.httpService.post(
+                    `${orderServiceBaseUrl}/order/${orderId}/suborder/${subOrderId}/materialize`,
+                    {},
+                    { timeout: HTTP_DOWNSTREAM_TIMEOUT_MS },
+                ),
+            );
+            return data;
+        } catch (e) {
+            rethrowDownstreamHttpError(e, {
+                serviceUnavailableMessage:
+                    'Servizio Ordini momentaneamente non raggiungibile',
+            });
+        }
+    }
+
+    
 }

@@ -26,7 +26,7 @@ export class SubOrderService {
     async createSubOrder(dto: CreateSubOrderDto): Promise<SubOrder> {
         try {
             if(dto.isPaid == true && dto.parentOrderId == null) {
-                throw new BadRequestException('Se l\'ordine che risulta pagato ma non associato ad alcun ordine');
+                throw new BadRequestException('L\'ordine che risulta pagato ma non associato ad alcun ordine');
             }
 
             const query = this.subOrderRepository.create({

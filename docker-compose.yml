@@ -1,39 +1,131 @@
+# Stack: RabbitMQ + una sola istanza Postgres con tre database (auth_db, order_db, inventory_db).
+# Ogni microservizio usa solo il proprio DB_DATABASE; l'api-gateway non usa Postgres.
+#
+# Password: default non vuoto anche con .env mal impostato.
+# Dopo cambio credenziali o init: docker compose down -v
+
+x-db-env: &db-env
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USERNAME: ${POSTGRES_USER:-postgres}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+
+x-common-env: &common-env
+  AMQP_URL: amqp://retail:retail@rabbitmq:5672
+  JWT_SECRET: ${JWT_SECRET:-dev-retail-jwt-secret-change-in-prod}
+
 services:
   rabbitmq:
     image: rabbitmq:3-management
+    hostname: rabbitmq
     ports:
-      - "5672:5672"   
-      - "15672:15672" # Dashboard admin (user: guest, pass: guest)
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: retail
+      RABBITMQ_DEFAULT_PASS: retail
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
   postgres:
-    image: postgres:15
+    image: postgres:15-alpine
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: retail_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
     ports:
       - "5432:5432"
-
-  api-gateway:
-    build: ./api-gateway
-    ports:
-      - "3000:3000"
-    environment:
-      RMQ_URL: amqp://rabbitmq:5672
-    depends_on:
-      - rabbitmq
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   auth-service:
-    build: ./auth-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NX_APP: auth-service
     environment:
-      RMQ_URL: amqp://rabbitmq:5672
+      <<: [*common-env, *db-env]
+      DB_DATABASE: auth_db
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NX_APP: order-service
+    environment:
+      <<: [*common-env, *db-env]
+      PORT: "3001"
+      DB_DATABASE: order_db
+    ports:
+      - "3001:3001"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   inventory-service:
-    build: ./inventory-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NX_APP: inventory-service
     environment:
-      RMQ_URL: amqp://rabbitmq:5672
+      <<: [*common-env, *db-env]
+      PORT: "3002"
+      DB_DATABASE: inventory_db
+    ports:
+      - "3002:3002"
     depends_on:
-      - rabbitmq
-      - postgres
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NX_APP: api-gateway
+    environment:
+      <<: *common-env
+      PORT: "3000"
+      ORDER_SERVICE_URL: http://order-service:3001
+      INVENTORY_SERVICE_URL: http://inventory-service:3002
+    ports:
+      - "3000:3000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
