@@ -11,7 +11,7 @@ import { SubordersController } from "./suborders.controller";
                 name: 'ORDERS_SERVICE',
                 transport: Transport.RMQ,
                 options: {
-                    urls: ['amqp://localhost:5672'],
+                    urls: [process.env.AMQP_URL ?? 'amqp://localhost:5672'],
                     queue: 'order_queue',
                     queueOptions: { durable: true },
                 },

@@ -7,6 +7,7 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { rethrowDownstreamHttpError } from '../http/rethrow-downstream-http-error';
 import { HTTP_DOWNSTREAM_TIMEOUT_MS, sendRmqWithTimeout } from '../rmq/send-with-timeout';
+import { orderServiceBaseUrl } from './order-service-base-url';
 
 @Controller('orders')
 export class OrdersController {
@@ -28,7 +29,7 @@ export class OrdersController {
         try {
             // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
-                this.httpService.post('http://localhost:3001/order', orderDto, {
+                this.httpService.post(`${orderServiceBaseUrl}/order`, orderDto, {
                     timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
                 })
             );
@@ -50,7 +51,7 @@ export class OrdersController {
         try {
             const { data } = await firstValueFrom(
                 this.httpService.put(
-                    `http://localhost:3001/order/${id}`,
+                    `${orderServiceBaseUrl}/order/${id}`,
                     orderDto,
                     { timeout: HTTP_DOWNSTREAM_TIMEOUT_MS },
                 ),
@@ -68,7 +69,7 @@ export class OrdersController {
         try {
             // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
-                this.httpService.post('http://localhost:3001/order/suborder', subOrder, {
+                this.httpService.post(`${orderServiceBaseUrl}/order/suborder`, subOrder, {
                     timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
                 })
             );
@@ -90,7 +91,7 @@ export class OrdersController {
         try {
             const { data } = await firstValueFrom(
                 this.httpService.post(
-                    `http://localhost:3001/order/${orderId}/suborder/${subOrderId}/materialize`,
+                    `${orderServiceBaseUrl}/order/${orderId}/suborder/${subOrderId}/materialize`,
                     {},
                     { timeout: HTTP_DOWNSTREAM_TIMEOUT_MS },
                 ),

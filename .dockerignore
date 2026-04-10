@@ -1,0 +1,10 @@
+node_modules
+dist
+.nx
+.git
+.cursor
+coverage
+logs
+*.log
+**/.env
+**/.env.*

@@ -7,6 +7,7 @@ import { CreateSubOrderDto, UpdateSubOrderDto } from "@retail-system/contracts";
 import { firstValueFrom } from "rxjs";
 import { HTTP_DOWNSTREAM_TIMEOUT_MS } from "../rmq/send-with-timeout";
 import { rethrowDownstreamHttpError } from "../http/rethrow-downstream-http-error";
+import { orderServiceBaseUrl } from "./order-service-base-url";
 
 @Controller('suborders')
 export class SubordersController {
@@ -21,7 +22,7 @@ export class SubordersController {
         try {
             // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
-                this.httpService.post('http://localhost:3001/order/suborder', suborderDto, {
+                this.httpService.post(`${orderServiceBaseUrl}/order/suborder`, suborderDto, {
                     timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
                 })
             );
@@ -43,7 +44,7 @@ export class SubordersController {
         try {
             const { data } = await firstValueFrom(
                 this.httpService.put(
-                    `http://localhost:3001/order/suborder/${subOrderId}`,
+                    `${orderServiceBaseUrl}/order/suborder/${subOrderId}`,
                     dto,
                     { timeout: HTTP_DOWNSTREAM_TIMEOUT_MS },
                 ),

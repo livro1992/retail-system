@@ -19,11 +19,11 @@ import { InventoryModule } from './inventory/inventory.module';
     }),
     TypeOrmModule.forRoot({
         type: 'postgres',
-        host: 'localhost',
-        port: 5432,
-        username: 'postgres',
-        password: 'postgres',
-        database: 'inventory_db',
+        host: process.env.DB_HOST ?? 'localhost',
+        port: parseInt(process.env.DB_PORT ?? '5432', 10),
+        username: process.env.DB_USERNAME ?? 'postgres',
+        password: process.env.DB_PASSWORD ?? 'postgres',
+        database: process.env.DB_DATABASE ?? 'inventory_db',
         entities: [
             Product,
             Stock,
@@ -43,7 +43,7 @@ import { InventoryModule } from './inventory/inventory.module';
         name: 'INVENTORY_SERVICE',
         transport: Transport.RMQ,
         options: {
-          urls: ['amqp://localhost:5672'],
+          urls: [process.env.AMQP_URL ?? 'amqp://localhost:5672'],
           queue: 'inventory_queue',
           queueOptions: { durable: true },
         },

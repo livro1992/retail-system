@@ -10,6 +10,7 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const port = process.env.PORT || 3002;
+  const amqpUrl = process.env.AMQP_URL ?? 'amqp://localhost:5672';
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -22,7 +23,7 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: ['amqp://localhost:5672'],
+      urls: [amqpUrl],
       queue: 'inventory_queue',
       queueOptions: { durable: true },
     },
