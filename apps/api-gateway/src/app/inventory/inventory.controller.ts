@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { HttpService } from '@nestjs/axios';
-import { CreateProductDto } from '@retail-system/shared';
+import { CreateProductDto, CreateProductsBulkDto } from '@retail-system/shared';
 import { firstValueFrom } from 'rxjs';
 import { rethrowDownstreamHttpError } from '../http/rethrow-downstream-http-error';
 import { HTTP_DOWNSTREAM_TIMEOUT_MS, sendRmqWithTimeout } from '../rmq/send-with-timeout';
@@ -41,6 +41,22 @@ export class InventoryController {
       const { data } = await firstValueFrom(
         this.httpService.get(`${inventoryHttpBase}/products`, {
           timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+        }),
+      );
+      return data;
+    } catch (e) {
+      rethrowDownstreamHttpError(e, inventoryDownstreamError);
+    }
+  }
+
+  @Post('products/bulk')
+  @UseGuards(JwtAuthGuard, RolesAuthGuard)
+  async createProductsBulk(@Body() dto: CreateProductsBulkDto) {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.post(`${inventoryHttpBase}/products/bulk`, dto, {
+          timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+          headers: { 'Content-Type': 'application/json' },
         }),
       );
       return data;

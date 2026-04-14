@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateProductDto } from '@retail-system/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { CreateProductDto, CreateProductsBulkDto } from '@retail-system/shared';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from '../../database/entites/products';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 @Injectable()
 export class ProductsService {
@@ -24,8 +24,43 @@ export class ProductsService {
   }
 
   async create(payload: CreateProductDto): Promise<Product> {
+    const isAlreadyPresent = await this.productRepository.findOne({
+        where: {
+            productId: payload.productId
+        }
+    });
+
+    if(isAlreadyPresent) {
+      throw new BadRequestException({
+        message: 'Prodotto con codice già presente'
+      });
+    }
     const entity = this.productRepository.create(payload);
     return this.productRepository.save(entity);
+  }
+
+  async createMany({ products }: CreateProductsBulkDto): Promise<Product[]> {
+    const ids = products.map((p) => p.productId);
+    const unique = new Set(ids);
+    
+    if (unique.size !== ids.length) {
+      throw new BadRequestException({
+        message: 'productId duplicati nel payload',
+      });
+    }
+
+    const existing = await this.productRepository.find({
+      where: { productId: In(ids) },
+    });
+    if (existing.length > 0) {
+      throw new BadRequestException({
+        message: 'Uno o più codici prodotto sono già presenti',
+        productIds: existing.map((e) => e.productId),
+      });
+    }
+
+    const entities = products.map((p) => this.productRepository.create(p));
+    return this.productRepository.save(entities);
   }
 
   async update(productId: string, payload: Partial<Product>): Promise<Product> {

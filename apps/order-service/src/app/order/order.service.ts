@@ -50,6 +50,8 @@ export class OrderService {
         try {
             const lineItems = order.orderItems ?? [];
 
+            //
+            //  L'ordine non può essere vuoto e nemmeno i suborder non posso avere items == 0
             if (
                 lineItems.length === 0
                 && order.subOrders?.some((s) => (s.items?.length ?? 0) > 0)
@@ -59,6 +61,8 @@ export class OrderService {
                 );
             }
 
+            //
+            //  Controllo che gli articoli siano effettivamente presenti
             if (this._mustCheckAvailability(order)) {
                 const availability = await this.commInventoryService.checkInventoryAvailability(order);
                 if (!availability.available) {
@@ -70,15 +74,14 @@ export class OrderService {
                 }
             }
 
+            //
+            //  Controllo che se acquisto in negozio il pagamento sia stato effettuato
             const hasLineItems = lineItems.length > 0;
             const paymentIdNormalized = order.paymentId?.trim() || undefined;
-            const effectivePaymentStatus =
-                order.paymentStatus ?? OrderPaymentStatus.pending;
+            const effectivePaymentStatus = order.paymentStatus ?? OrderPaymentStatus.pending;
 
             if (order.fulfillmentMode === OrderFullfilmentMode.shop && hasLineItems) {
-                const paymentCorrect =
-                    (order.paymentStatus === OrderPaymentStatus.paid)
-                    && paymentIdNormalized != null;
+                const paymentCorrect = (order.paymentStatus === OrderPaymentStatus.paid) && paymentIdNormalized != null;
 
                 if (!paymentCorrect) {
                     throw new HttpException('Stato di pagamento non conforme', HttpStatus.BAD_REQUEST);

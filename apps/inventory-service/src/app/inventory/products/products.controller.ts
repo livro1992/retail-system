@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { CreateProductDto } from '@retail-system/shared';
+import { CreateProductDto, CreateProductsBulkDto } from '@retail-system/shared';
 import { Product } from '../../database/entites/products';
 import { ProductsService } from './products.service';
 
@@ -15,6 +15,11 @@ export class ProductsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
+  }
+
+  @Post('bulk')
+  createMany(@Body() payload: CreateProductsBulkDto) {
+    return this.productsService.createMany(payload);
   }
 
   @Post()

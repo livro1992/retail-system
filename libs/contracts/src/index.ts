@@ -25,3 +25,4 @@ export * from './lib/constants/orders/physical_sub_order_status';
 export * from './lib/constants/inventory/movement_type';
 export * from './lib/communication_commands/inventory_commands';
 export * from './lib/dto/inventory/create-product.dto';
+export * from './lib/dto/inventory/create-products-bulk.dto';
