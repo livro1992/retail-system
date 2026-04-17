@@ -16,6 +16,8 @@ export * from './lib/constants/orders/payment_method';
 export * from './lib/constants/orders/payment_document_type';
 export * from './lib/constants/orders/payment_status';
 export * from './lib/dto/orders/create-order.dto';
+export * from './lib/dto/orders/create-payment.dto';
+export * from './lib/dto/orders/update-payment.dto';
 export * from './lib/dto/orders/create-order-item.dto';
 export * from './lib/dto/orders/create-sub-order-item.dto';
 export * from './lib/dto/orders/create-sub-order.dto';

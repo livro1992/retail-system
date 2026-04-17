@@ -48,6 +48,8 @@ export class OrderService {
      */
     async createOrder(order: CreateOrderDto): Promise<Order> {
         try {
+            console.log('init order');
+            
             const lineItems = order.orderItems ?? [];
 
             //
@@ -60,10 +62,12 @@ export class OrderService {
                     'Righe sub-ordine con orderItemId richiedono righe ordine: crea prima gli articoli o invia sub-ordini senza righe.',
                 );
             }
+            console.log('correct order');
+            
 
             //
             //  Controllo che gli articoli siano effettivamente presenti
-            if (this._mustCheckAvailability(order)) {
+            /*if (this._mustCheckAvailability(order)) {
                 const availability = await this.commInventoryService.checkInventoryAvailability(order);
                 if (!availability.available) {
                     const unavailableItems = availability.items.filter((item) => !item.available);
@@ -72,7 +76,8 @@ export class OrderService {
                         items: unavailableItems
                     });
                 }
-            }
+            }*/
+            console.log('products availables');
 
             //
             //  Controllo che se acquisto in negozio il pagamento sia stato effettuato
@@ -95,6 +100,8 @@ export class OrderService {
                 })
             );
 
+            console.log('correct total');
+
             const { paymentId, orderItems: _dtoItems, subOrders: _subOrdersDto, ...orderFields } = order;
             let paymentRow: Payment | null = null;
 
@@ -109,6 +116,10 @@ export class OrderService {
             }
             this._ensurePaidOrderHasPayment(effectivePaymentStatus, paymentRow);
 
+            console.log('order paid correctly');
+            console.log(orderFields);
+            console.log(orderItems);
+
             const query = this.orderRepository.create({
                 ...orderFields,
                 totalAmount: totalSum,
@@ -117,20 +128,31 @@ export class OrderService {
             });
             const saved = await this.orderRepository.save(query);
 
+            console.log('non salvi');
+            console.log(saved);
+            
+
             try {
                 if (hasLineItems) {
+                    console.log('hasLineItemsssss');
+                    
                     await this._createOperationalSubOrders(saved);
                 } else if (order.subOrders?.length) {
                     await this._persistVacantSubOrders(saved.orderId, order.subOrders);
                 }
-                await this._applyStockForOrder(saved, order);
+                console.log('QUI????????');
+                
+                //await this._applyStockForOrder(saved, order);
             } catch (inner: unknown) {
                 await this.orderRepository.delete({ orderId: saved.orderId });
                 throw inner;
             }
-
+            console.log('DIOCANNNNNNEEEEE');
             return this.getOrderById(saved.orderId);
         } catch (e: unknown) {
+            console.log(e);
+            
+
             if (e instanceof TimeoutError) {
                 throw new GatewayTimeoutException('Inventory service timeout durante operazione su inventario');
             }
@@ -188,14 +210,14 @@ export class OrderService {
         if (!full?.orderItems?.length) {
             return;
         }
-
+/*  momentaneamente commentato
         const productIds = full.orderItems.map((i) => i.productId);
         await firstValueFrom(
             this.inventoryClient.send(
                 { cmd: InventoryCommand.validateOrderProducts },
                 { productIds }
             ).pipe(timeout(2500))
-        );
+        );*/
 
         const isPaid = full.paymentStatus === OrderPaymentStatus.paid;
 

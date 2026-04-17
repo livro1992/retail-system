@@ -3,7 +3,8 @@ import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateProductDto implements Readonly<CreateProductDto> {
   @IsString()
-  productId!: string;
+  @IsOptional()
+  productId?: string;
 
   @IsString()
   name!: string;

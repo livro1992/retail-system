@@ -3,6 +3,7 @@ import { CreateProductDto, CreateProductsBulkDto } from '@retail-system/shared';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from '../../database/entites/products';
 import { In, Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ProductsService {
@@ -35,7 +36,11 @@ export class ProductsService {
         message: 'Prodotto con codice già presente'
       });
     }
-    const entity = this.productRepository.create(payload);
+    const prodId = payload.productId != null ? payload.productId : randomUUID();
+    const entity = this.productRepository.create({
+      ...payload,
+      productId: prodId,
+    });
     return this.productRepository.save(entity);
   }
 
@@ -48,17 +53,16 @@ export class ProductsService {
         message: 'productId duplicati nel payload',
       });
     }
-
     const existing = await this.productRepository.find({
       where: { productId: In(ids) },
     });
+
     if (existing.length > 0) {
       throw new BadRequestException({
         message: 'Uno o più codici prodotto sono già presenti',
         productIds: existing.map((e) => e.productId),
       });
     }
-
     const entities = products.map((p) => this.productRepository.create(p));
     return this.productRepository.save(entities);
   }
