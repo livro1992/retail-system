@@ -1,7 +1,13 @@
 import { Body, Controller, Get, Inject, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { HttpService } from '@nestjs/axios';
-import { CreateProductDto, CreateProductsBulkDto } from '@retail-system/shared';
+import {
+    CreateProductDto,
+    CreateProductsBulkDto,
+    INVENTORY_MUTATE_ROLES,
+    INVENTORY_READ_ROLES,
+    Roles,
+} from '@retail-system/shared';
 import { firstValueFrom } from 'rxjs';
 import { rethrowDownstreamHttpError } from '../http/rethrow-downstream-http-error';
 import { HTTP_DOWNSTREAM_TIMEOUT_MS, sendRmqWithTimeout } from '../rmq/send-with-timeout';
@@ -35,6 +41,7 @@ export class InventoryController {
 
   /** Lista prodotti (GET). Il browser fa solo GET: senza questa rotta, /inventory/products dava 404. */
   @Get('products')
+  @Roles(...INVENTORY_READ_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async listProducts() {
     try {
@@ -50,6 +57,7 @@ export class InventoryController {
   }
 
   @Post('products/bulk')
+  @Roles(...INVENTORY_MUTATE_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async createProductsBulk(@Body() dto: CreateProductsBulkDto) {
     try {
@@ -66,8 +74,8 @@ export class InventoryController {
   }
 
   @Post('products')
+  @Roles(...INVENTORY_MUTATE_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
-  // Abilita per ambienti protetti: @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async createProduct(@Body() dto: CreateProductDto) {
     try {
       const { data } = await firstValueFrom(
@@ -83,6 +91,7 @@ export class InventoryController {
   }
 
   @Put('products/:id')
+  @Roles(...INVENTORY_MUTATE_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async updateProduct(
     @Param('id') id: string,

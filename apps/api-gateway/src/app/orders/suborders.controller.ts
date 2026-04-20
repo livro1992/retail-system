@@ -4,6 +4,7 @@ import { ClientProxy } from "@nestjs/microservices";
 import { RolesAuthGuard } from "../auth/guards/roles-auth-guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth-guard";
 import { CreateSubOrderDto, UpdateSubOrderDto } from "@retail-system/contracts";
+import { Roles, SUBORDER_CREATE_ROLES, SUBORDER_UPDATE_ROLES } from "@retail-system/shared";
 import { firstValueFrom } from "rxjs";
 import { HTTP_DOWNSTREAM_TIMEOUT_MS } from "../rmq/send-with-timeout";
 import { rethrowDownstreamHttpError } from "../http/rethrow-downstream-http-error";
@@ -17,6 +18,7 @@ export class SubordersController {
     ) {}
 
     @Post('create')
+    @Roles(...SUBORDER_CREATE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async createSubOrder(@Body() suborderDto: CreateSubOrderDto) {
         try {
@@ -36,6 +38,7 @@ export class SubordersController {
     }
 
     @Put('update/:subOrderId')
+    @Roles(...SUBORDER_UPDATE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async updateSubOrder(
         @Param('subOrderId') subOrderId: string,

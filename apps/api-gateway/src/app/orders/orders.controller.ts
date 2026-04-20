@@ -2,7 +2,15 @@ import { Body, Controller, Get, Inject, Param, Post, Put, UseGuards } from '@nes
 import { RolesAuthGuard } from '../auth/guards/roles-auth-guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth-guard';
 import { ClientProxy } from '@nestjs/microservices';
-import { CreateOrderDto, CreateSubOrderDto, OrdersCommand } from '@retail-system/shared';
+import {
+    ALL_APP_ROLES,
+    CreateOrderDto,
+    CreateSubOrderDto,
+    ORDER_WRITE_ROLES,
+    OrdersCommand,
+    Roles,
+    SUBORDER_MATERIALIZE_ROLES,
+} from '@retail-system/shared';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { rethrowDownstreamHttpError } from '../http/rethrow-downstream-http-error';
@@ -17,6 +25,7 @@ export class OrdersController {
     ) {}
 
     @Get('status')
+    @Roles(...ALL_APP_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async getStatusOrderService() {
         return sendRmqWithTimeout(this.client, { cmd: OrdersCommand.checkStatus }, {});
@@ -24,6 +33,7 @@ export class OrdersController {
 
     
     @Post('create')
+    @Roles(...ORDER_WRITE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async createOrder(@Body() orderDto: CreateOrderDto) {
         try {
@@ -43,6 +53,7 @@ export class OrdersController {
     }
 
     @Put('update/:id')
+    @Roles(...ORDER_WRITE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async updateOrder(
         @Param('id') id: string,
@@ -83,6 +94,7 @@ export class OrdersController {
     }
 
     @Post('order/:orderId/suborder/:subOrderId/materialize')
+    @Roles(...SUBORDER_MATERIALIZE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async materializeSubOrderToOrderItems(
         @Param('orderId') orderId: string,

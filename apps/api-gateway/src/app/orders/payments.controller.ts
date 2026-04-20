@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { CreatePaymentDto, UpdatePaymentDto } from '@retail-system/shared';
+import { CreatePaymentDto, PAYMENT_ROLES, Roles, UpdatePaymentDto } from '@retail-system/shared';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth-guard';
 import { RolesAuthGuard } from '../auth/guards/roles-auth-guard';
 import { rethrowDownstreamHttpError } from '../http/rethrow-downstream-http-error';
@@ -19,6 +19,7 @@ export class PaymentsController {
   constructor(private readonly httpService: HttpService) {}
 
   @Get()
+  @Roles(...PAYMENT_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async listPayments() {
     try {
@@ -34,6 +35,7 @@ export class PaymentsController {
   }
 
   @Get(':id')
+  @Roles(...PAYMENT_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async getPayment(@Param('id') id: string) {
     try {
@@ -49,6 +51,7 @@ export class PaymentsController {
   }
 
   @Post()
+  @Roles(...PAYMENT_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async createPayment(@Body() dto: CreatePaymentDto) {
     try {
@@ -65,6 +68,7 @@ export class PaymentsController {
   }
 
   @Put(':id')
+  @Roles(...PAYMENT_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async updatePayment(
     @Param('id') id: string,
@@ -84,6 +88,7 @@ export class PaymentsController {
   }
 
   @Delete(':id')
+  @Roles(...PAYMENT_ROLES)
   @UseGuards(JwtAuthGuard, RolesAuthGuard)
   async deletePayment(@Param('id') id: string) {
     try {

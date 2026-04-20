@@ -14,6 +14,10 @@ export class CreateProductDto implements Readonly<CreateProductDto> {
 
   @Type(() => Number)
   @IsNumber()
+  vat!: number;
+
+  @Type(() => Number)
+  @IsNumber()
   basePrice!: number;
 
   @IsString()
