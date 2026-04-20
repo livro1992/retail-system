@@ -12,9 +12,11 @@ import {
     CreateSubOrderDto,
     UpdateSubOrderDto,
 } from "@retail-system/contracts";
+import { Order } from "../database/entities/order";
 import { SubOrder } from "../database/entities/sub_order";
 import { SubOrderItem } from "../database/entities/sub_order_item";
 import { TimeoutError } from "rxjs";
+import { CommInventoryService } from "./comm-inventory.service";
 
 type CreateSubOrderAudit = {
     createdByUserId?: number;
@@ -25,6 +27,8 @@ export class SubOrderService {
     constructor(
         @InjectRepository(SubOrder) private readonly subOrderRepository: Repository<SubOrder>,
         @InjectRepository(SubOrderItem) private readonly subOrderItemRepository: Repository<SubOrderItem>,
+        @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
+        private readonly commInventoryService: CommInventoryService,
     ) {}
 
     async createSubOrder(
@@ -35,6 +39,11 @@ export class SubOrderService {
             if(dto.isPaid == true && dto.parentOrderId == null) {
                 throw new BadRequestException('L\'ordine che risulta pagato ma non associato ad alcun ordine');
             }
+
+            await this._assertWarehouseMatchesParentMarket(
+                dto.warehouseId ?? null,
+                dto.parentOrderId ?? null,
+            );
 
             const query = this.subOrderRepository.create({
                 ...dto,
@@ -88,6 +97,12 @@ export class SubOrderService {
                 sub.fulfilledByUserId = dto.fulfilledByUserId;
             }
             if (dto.warehouseId !== undefined) {
+                if (typeof dto.warehouseId === "string") {
+                    await this._assertWarehouseMatchesParentMarket(
+                        dto.warehouseId,
+                        sub.parentOrderId,
+                    );
+                }
                 sub.warehouseId = dto.warehouseId;
             }
 
@@ -120,6 +135,31 @@ export class SubOrderService {
         } catch (e) {
             this._rethrowKnownErrors(e);
         }
+    }
+
+    /**
+     * Allinea `warehouseId` al `marketId` dell’ordine padre via inventory-service (RabbitMQ).
+     */
+    private async _assertWarehouseMatchesParentMarket(
+        warehouseId: string | null | undefined,
+        parentOrderId: string | null | undefined,
+    ): Promise<void> {
+        if (warehouseId == null || warehouseId === "") {
+            return;
+        }
+        if (parentOrderId == null || parentOrderId === "") {
+            throw new BadRequestException(
+                "warehouseId richiede parentOrderId per validare il punto vendita.",
+            );
+        }
+        const order = await this.orderRepository.findOne({
+            where: { orderId: parentOrderId },
+            select: { orderId: true, marketId: true },
+        });
+        if (!order) {
+            throw new NotFoundException(`Ordine ${parentOrderId} non trovato`);
+        }
+        await this.commInventoryService.validateWarehouseForMarket(warehouseId, order.marketId);
     }
 
     private _rethrowKnownErrors(e: unknown): never {

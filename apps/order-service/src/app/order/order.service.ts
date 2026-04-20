@@ -252,7 +252,20 @@ export class OrderService {
         subOrders: CreateSubOrderDto[],
         createdByUserId?: number,
     ): Promise<void> {
+        const head = await this.orderRepository.findOne({
+            where: { orderId },
+            select: { marketId: true },
+        });
+        if (!head) {
+            throw new NotFoundException(`Ordine ${orderId} non trovato`);
+        }
         for (const sub of subOrders) {
+            if (sub.warehouseId) {
+                await this.commInventoryService.validateWarehouseForMarket(
+                    sub.warehouseId,
+                    head.marketId,
+                );
+            }
             const { parentOrderId: _ignoredParent, items = [], ...rest } = sub;
             const entity = this.subOrderRepository.create({
                 ...rest,

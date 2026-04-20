@@ -9,19 +9,24 @@ import { StockService } from './stock/stock.service';
 import { StockMovementsController } from './stock-movement/stock-movements.controller';
 import { StockMovementsService } from './stock-movement/stock-movements.service';
 import { StockMovement } from '../database/entites/sotck_movement';
+import { Warehouse } from '../database/entites/warehouse';
+import { WarehousesController } from './warehouses/warehouses.controller';
+import { WarehousesService } from './warehouses/warehouses.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
     Product, 
     Stock,
-    StockMovement
+    StockMovement,
+    Warehouse,
   ])],
   controllers: [
     ProductsController,
     StockController,
     StockMovementsController,
+    WarehousesController,
   ],
-  providers: [ProductsService, StockService, StockMovementsService],
-  exports: [ProductsService, StockService, StockMovementsService],
+  providers: [ProductsService, StockService, StockMovementsService, WarehousesService],
+  exports: [ProductsService, StockService, StockMovementsService, WarehousesService],
 })
 export class InventoryModule {}

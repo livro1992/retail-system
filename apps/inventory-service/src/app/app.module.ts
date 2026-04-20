@@ -8,6 +8,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from './database/entites/products';
 import { Stock } from './database/entites/stock';
 import { StockMovement } from './database/entites/sotck_movement';
+import { Warehouse } from './database/entites/warehouse';
 import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
@@ -26,7 +27,8 @@ import { InventoryModule } from './inventory/inventory.module';
         entities: [
             Product,
             Stock,
-            StockMovement
+            StockMovement,
+            Warehouse,
         ],
         synchronize: true
     }),
