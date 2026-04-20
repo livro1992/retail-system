@@ -1,11 +1,11 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { PhysicalSubOrderStatus } from '../../constants/orders/physical_sub_order_status';
@@ -23,6 +23,10 @@ export class CreateSubOrderDto implements Readonly<CreateSubOrderDto> {
   @IsOptional()
   @IsBoolean()
   isPaid?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  warehouseId?: string;
 
   @IsArray()
   @IsOptional()

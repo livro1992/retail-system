@@ -16,6 +16,10 @@ import { SubOrder } from "../database/entities/sub_order";
 import { SubOrderItem } from "../database/entities/sub_order_item";
 import { TimeoutError } from "rxjs";
 
+type CreateSubOrderAudit = {
+    createdByUserId?: number;
+};
+
 @Injectable()
 export class SubOrderService {
     constructor(
@@ -23,7 +27,10 @@ export class SubOrderService {
         @InjectRepository(SubOrderItem) private readonly subOrderItemRepository: Repository<SubOrderItem>,
     ) {}
 
-    async createSubOrder(dto: CreateSubOrderDto): Promise<SubOrder> {
+    async createSubOrder(
+        dto: CreateSubOrderDto,
+        audit?: CreateSubOrderAudit,
+    ): Promise<SubOrder> {
         try {
             if(dto.isPaid == true && dto.parentOrderId == null) {
                 throw new BadRequestException('L\'ordine che risulta pagato ma non associato ad alcun ordine');
@@ -31,6 +38,7 @@ export class SubOrderService {
 
             const query = this.subOrderRepository.create({
                 ...dto,
+                createdByUserId: audit?.createdByUserId ?? null,
             });
             return await this.subOrderRepository.save(query);
         } catch (e) {
@@ -46,7 +54,9 @@ export class SubOrderService {
             dto.parentOrderId !== undefined ||
             dto.physicalStatus !== undefined ||
             dto.isPaid !== undefined ||
-            dto.items !== undefined;
+            dto.items !== undefined ||
+            dto.fulfilledByUserId !== undefined ||
+            dto.warehouseId !== undefined;
 
         if (!hasPayload) {
             return this._getSubOrderByIdOrThrow(subOrderId);
@@ -74,8 +84,18 @@ export class SubOrderService {
                 }
                 sub.isPaid = dto.isPaid;
             }
+            if (dto.fulfilledByUserId !== undefined) {
+                sub.fulfilledByUserId = dto.fulfilledByUserId;
+            }
+            if (dto.warehouseId !== undefined) {
+                sub.warehouseId = dto.warehouseId;
+            }
 
-            const scalarChanged = dto.physicalStatus !== undefined || dto.isPaid !== undefined;
+            const scalarChanged =
+                dto.physicalStatus !== undefined ||
+                dto.isPaid !== undefined ||
+                dto.fulfilledByUserId !== undefined ||
+                dto.warehouseId !== undefined;
             if (scalarChanged) {
                 await this.subOrderRepository.save(sub);
             }

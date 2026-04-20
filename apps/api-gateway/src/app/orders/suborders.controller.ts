@@ -1,10 +1,11 @@
 import { HttpService } from "@nestjs/axios";
-import { Body, Controller, Inject, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Inject, Param, Post, Put, Req, UseGuards } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
+import { Request } from "express";
 import { RolesAuthGuard } from "../auth/guards/roles-auth-guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth-guard";
 import { CreateSubOrderDto, UpdateSubOrderDto } from "@retail-system/contracts";
-import { Roles, SUBORDER_CREATE_ROLES, SUBORDER_UPDATE_ROLES } from "@retail-system/shared";
+import { JwtPayload, Roles, SUBORDER_CREATE_ROLES, SUBORDER_UPDATE_ROLES } from "@retail-system/shared";
 import { firstValueFrom } from "rxjs";
 import { HTTP_DOWNSTREAM_TIMEOUT_MS } from "../rmq/send-with-timeout";
 import { rethrowDownstreamHttpError } from "../http/rethrow-downstream-http-error";
@@ -20,12 +21,14 @@ export class SubordersController {
     @Post('create')
     @Roles(...SUBORDER_CREATE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    async createSubOrder(@Body() suborderDto: CreateSubOrderDto) {
+    async createSubOrder(@Body() suborderDto: CreateSubOrderDto, @Req() req: Request) {
         try {
+            const user = req["user"] as JwtPayload;
             // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
                 this.httpService.post(`${orderServiceBaseUrl}/order/suborder`, suborderDto, {
                     timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+                    headers: user ? { "x-user-id": String(user.id) } : undefined,
                 })
             );
             return data;

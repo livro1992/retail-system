@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Inject, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { RolesAuthGuard } from '../auth/guards/roles-auth-guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth-guard';
 import { ClientProxy } from '@nestjs/microservices';
@@ -6,6 +7,7 @@ import {
     ALL_APP_ROLES,
     CreateOrderDto,
     CreateSubOrderDto,
+    JwtPayload,
     ORDER_WRITE_ROLES,
     OrdersCommand,
     Roles,
@@ -35,12 +37,14 @@ export class OrdersController {
     @Post('create')
     @Roles(...ORDER_WRITE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    async createOrder(@Body() orderDto: CreateOrderDto) {
+    async createOrder(@Body() orderDto: CreateOrderDto, @Req() req: Request) {
         try {
+            const user = req['user'] as JwtPayload;
             // Synchronous call: API Gateway waits for HTTP response
             const { data } = await firstValueFrom(
                 this.httpService.post(`${orderServiceBaseUrl}/order`, orderDto, {
                     timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+                    headers: user ? { 'x-user-id': String(user.id) } : undefined,
                 })
             );
             return data;

@@ -46,7 +46,10 @@ export class OrderService {
      * 2. Altri flussi: check disponibilità opzionale poi riserva giacenza.
      * Una SubOrder operativa per ordine (righe collegate); suddivisione per reparto si potrà aggiungere in seguito.
      */
-    async createOrder(order: CreateOrderDto): Promise<Order> {
+    async createOrder(
+        order: CreateOrderDto,
+        options?: { createdByUserId?: number },
+    ): Promise<Order> {
         try {
             console.log('init order');
             
@@ -136,9 +139,13 @@ export class OrderService {
                 if (hasLineItems) {
                     console.log('hasLineItemsssss');
                     
-                    await this._createOperationalSubOrders(saved);
+                    await this._createOperationalSubOrders(saved, options?.createdByUserId);
                 } else if (order.subOrders?.length) {
-                    await this._persistVacantSubOrders(saved.orderId, order.subOrders);
+                    await this._persistVacantSubOrders(
+                        saved.orderId,
+                        order.subOrders,
+                        options?.createdByUserId,
+                    );
                 }
                 console.log('QUI????????');
                 
@@ -202,7 +209,10 @@ export class OrderService {
         }
     }
 
-    private async _createOperationalSubOrders(order: Order): Promise<void> {
+    private async _createOperationalSubOrders(
+        order: Order,
+        createdByUserId?: number,
+    ): Promise<void> {
         const full = await this.orderRepository.findOne({
             where: { orderId: order.orderId },
             relations: { orderItems: true },
@@ -225,6 +235,7 @@ export class OrderService {
             parentOrderId: full.orderId,
             physicalStatus: PhysicalSubOrderStatus.PENDING,
             isPaid,
+            createdByUserId: createdByUserId ?? null,
             items: full.orderItems.map((line) =>
                 this.subOrderItemRepository.create({
                     orderItemId: line.orderItemId,
@@ -239,12 +250,14 @@ export class OrderService {
     private async _persistVacantSubOrders(
         orderId: string,
         subOrders: CreateSubOrderDto[],
+        createdByUserId?: number,
     ): Promise<void> {
         for (const sub of subOrders) {
             const { parentOrderId: _ignoredParent, items = [], ...rest } = sub;
             const entity = this.subOrderRepository.create({
                 ...rest,
                 parentOrderId: orderId,
+                createdByUserId: createdByUserId ?? null,
                 items: items.map((line) =>
                     this.subOrderItemRepository.create({
                         orderItemId: line.orderItemId,

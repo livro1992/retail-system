@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Post, Put } from '@nestjs/common';
 import {
     CreateOrderDto,
     CreateSubOrderDto,
@@ -14,14 +14,36 @@ export class OrderController {
         private readonly suborderService: SubOrderService
     ) {}
 
+    private _userIdFromHeader(xUserId?: string): number | undefined {
+        if (xUserId == null || xUserId === '') {
+            return undefined;
+        }
+        const n = parseInt(xUserId, 10);
+        return Number.isFinite(n) ? n : undefined;
+    }
+
     @Post()
-    createOrder(@Body() orderDto: CreateOrderDto) {
-        return this.orderService.createOrder(orderDto);
+    createOrder(
+        @Body() orderDto: CreateOrderDto,
+        @Headers('x-user-id') xUserId?: string,
+    ) {
+        const createdByUserId = this._userIdFromHeader(xUserId);
+        return this.orderService.createOrder(
+            orderDto,
+            createdByUserId !== undefined ? { createdByUserId } : undefined,
+        );
     }
 
     @Post('suborder')
-    createSuborder(@Body() subOrder: CreateSubOrderDto) {
-        return this.suborderService.createSubOrder(subOrder);
+    createSuborder(
+        @Body() subOrder: CreateSubOrderDto,
+        @Headers('x-user-id') xUserId?: string,
+    ) {
+        const createdByUserId = this._userIdFromHeader(xUserId);
+        return this.suborderService.createSubOrder(
+            subOrder,
+            createdByUserId !== undefined ? { createdByUserId } : undefined,
+        );
     }
 
     @Put('suborder/:subOrderId')
