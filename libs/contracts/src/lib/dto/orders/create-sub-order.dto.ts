@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -24,8 +23,13 @@ export class CreateSubOrderDto implements Readonly<CreateSubOrderDto> {
   @IsBoolean()
   isPaid?: boolean;
 
-  @IsArray()
   @IsOptional()
+  @IsString()
+  warehouseId?: string;
+
+  /** Opzionale: suborder anche senza righe (es. bozza o solo metadati). */
+  @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateSubOrderItemDto)
   items?: CreateSubOrderItemDto[];

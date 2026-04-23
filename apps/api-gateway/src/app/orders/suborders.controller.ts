@@ -1,9 +1,11 @@
 import { HttpService } from "@nestjs/axios";
-import { Body, Controller, Inject, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Put, Req, UseGuards } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
+import { Request } from "express";
 import { RolesAuthGuard } from "../auth/guards/roles-auth-guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth-guard";
-import { CreateSubOrderDto, UpdateSubOrderDto } from "@retail-system/contracts";
+import { CreateSubOrderDto, SUBORDER_ALL_PENDING, UpdateSubOrderDto } from "@retail-system/contracts";
+import { JwtPayload, Roles, SUBORDER_CREATE_ROLES, SUBORDER_UPDATE_ROLES } from "@retail-system/shared";
 import { firstValueFrom } from "rxjs";
 import { HTTP_DOWNSTREAM_TIMEOUT_MS } from "../rmq/send-with-timeout";
 import { rethrowDownstreamHttpError } from "../http/rethrow-downstream-http-error";
@@ -16,14 +18,16 @@ export class SubordersController {
         private readonly httpService: HttpService
     ) {}
 
-    @Post('create')
+    @Post('')
+    @Roles(...SUBORDER_CREATE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    async createSubOrder(@Body() suborderDto: CreateSubOrderDto) {
+    async createSubOrder(@Body() suborderDto: CreateSubOrderDto, @Req() req: Request) {
         try {
-            // Synchronous call: API Gateway waits for HTTP response
+            const user = req["user"] as JwtPayload;
             const { data } = await firstValueFrom(
                 this.httpService.post(`${orderServiceBaseUrl}/order/suborder`, suborderDto, {
                     timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+                    headers: user ? { "x-user-id": String(user.id) } : undefined,
                 })
             );
             return data;
@@ -35,7 +39,8 @@ export class SubordersController {
         }
     }
 
-    @Put('update/:subOrderId')
+    @Put(':subOrderId')
+    @Roles(...SUBORDER_UPDATE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async updateSubOrder(
         @Param('subOrderId') subOrderId: string,
@@ -48,6 +53,25 @@ export class SubordersController {
                     dto,
                     { timeout: HTTP_DOWNSTREAM_TIMEOUT_MS },
                 ),
+            );
+            return data;
+        } catch (e) {
+            rethrowDownstreamHttpError(e, {
+                serviceUnavailableMessage:
+                    'Servizio Ordini momentaneamente non raggiungibile',
+            });
+        }
+    }
+
+    @Get('pending')
+    @Roles(...SUBORDER_ALL_PENDING)
+    @UseGuards(JwtAuthGuard, RolesAuthGuard)
+    async getPendingSuborders() {
+        try {
+            const { data } = await firstValueFrom(
+                this.httpService.get(`${orderServiceBaseUrl}/order/suborder/`, {
+                    timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+                }),
             );
             return data;
         } catch (e) {

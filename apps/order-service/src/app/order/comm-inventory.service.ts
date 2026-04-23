@@ -48,4 +48,15 @@ export class CommInventoryService {
                 .pipe(timeout(2500)),
         );
     }
+
+    async validateWarehouseForMarket(warehouseId: string, marketId: string): Promise<void> {
+        await firstValueFrom(
+            this.inventoryClient
+                .send(
+                    { cmd: InventoryCommand.validateWarehouseForMarket },
+                    { warehouseId, marketId },
+                )
+                .pipe(timeout(2500)),
+        );
+    }
 }

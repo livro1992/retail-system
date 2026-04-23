@@ -1,5 +1,4 @@
 import {
-    BadRequestException,
     GatewayTimeoutException,
     HttpException,
     HttpStatus,
@@ -16,21 +15,31 @@ import { SubOrder } from "../database/entities/sub_order";
 import { SubOrderItem } from "../database/entities/sub_order_item";
 import { TimeoutError } from "rxjs";
 
+type CreateSubOrderAudit = {
+    createdByUserId?: number;
+};
+
 @Injectable()
 export class SubOrderService {
     constructor(
         @InjectRepository(SubOrder) private readonly subOrderRepository: Repository<SubOrder>,
-        @InjectRepository(SubOrderItem) private readonly subOrderItemRepository: Repository<SubOrderItem>,
+        @InjectRepository(SubOrderItem)
+        private readonly subOrderItemRepository: Repository<SubOrderItem>,
     ) {}
 
-    async createSubOrder(dto: CreateSubOrderDto): Promise<SubOrder> {
+    async createSubOrder(
+        dto: CreateSubOrderDto,
+        audit?: CreateSubOrderAudit,
+    ): Promise<SubOrder> {
         try {
-            if(dto.isPaid == true && dto.parentOrderId == null) {
-                throw new BadRequestException('L\'ordine che risulta pagato ma non associato ad alcun ordine');
-            }
-
+            const { items = [], ...rest } = dto;
+            const byLine = this._aggregateQuantitiesByOrderItem(items);
             const query = this.subOrderRepository.create({
-                ...dto,
+                ...rest,
+                createdByUserId: audit?.createdByUserId ?? null,
+                items: Array.from(byLine.entries()).map(([orderItemId, quantity]) =>
+                    this.subOrderItemRepository.create({ orderItemId, quantity }),
+                ),
             });
             return await this.subOrderRepository.save(query);
         } catch (e) {
@@ -46,7 +55,9 @@ export class SubOrderService {
             dto.parentOrderId !== undefined ||
             dto.physicalStatus !== undefined ||
             dto.isPaid !== undefined ||
-            dto.items !== undefined;
+            dto.items !== undefined ||
+            dto.fulfilledByUserId !== undefined ||
+            dto.warehouseId !== undefined;
 
         if (!hasPayload) {
             return this._getSubOrderByIdOrThrow(subOrderId);
@@ -60,22 +71,28 @@ export class SubOrderService {
                 throw new NotFoundException(`Sub-ordine ${subOrderId} non trovato`);
             }
 
-            if (dto.parentOrderId !== undefined 
-                && sub.parentOrderId != null 
-                && dto.parentOrderId != sub.parentOrderId) {
-                throw new BadRequestException('Ordine già assegnato. Non è possibile cambiare')
+            if (dto.parentOrderId !== undefined) {
+                sub.parentOrderId = dto.parentOrderId;
             }
             if (dto.physicalStatus !== undefined) {
                 sub.physicalStatus = dto.physicalStatus;
             }
             if (dto.isPaid !== undefined) {
-                if(dto.isPaid && sub.parentOrderId == null && dto.parentOrderId == null) {
-                    throw new BadRequestException('Non può essere pagato se non associato alcun ordine');
-                }
                 sub.isPaid = dto.isPaid;
             }
+            if (dto.fulfilledByUserId !== undefined) {
+                sub.fulfilledByUserId = dto.fulfilledByUserId;
+            }
+            if (dto.warehouseId !== undefined) {
+                sub.warehouseId = dto.warehouseId;
+            }
 
-            const scalarChanged = dto.physicalStatus !== undefined || dto.isPaid !== undefined;
+            const scalarChanged =
+                dto.parentOrderId !== undefined ||
+                dto.physicalStatus !== undefined ||
+                dto.isPaid !== undefined ||
+                dto.fulfilledByUserId !== undefined ||
+                dto.warehouseId !== undefined;
             if (scalarChanged) {
                 await this.subOrderRepository.save(sub);
             }
@@ -83,12 +100,17 @@ export class SubOrderService {
             if (dto.items !== undefined) {
                 const byLine = this._aggregateQuantitiesByOrderItem(dto.items);
 
-                await this.subOrderItemRepository.delete({ subOrderId });
+                await this.subOrderItemRepository
+                    .createQueryBuilder()
+                    .delete()
+                    .from(SubOrderItem)
+                    .where("sub_order_id = :id", { id: subOrderId })
+                    .execute();
 
                 const rows = Array.from(byLine.entries()).map(
                     ([orderItemId, quantity]) =>
                         this.subOrderItemRepository.create({
-                            subOrderId,
+                            subOrder: { subOrderId } as SubOrder,
                             orderItemId,
                             quantity,
                         }),
@@ -102,13 +124,23 @@ export class SubOrderService {
         }
     }
 
+    async getSubOrders(userId: number): Promise<SubOrder[]> {
+        try {
+            return await this.subOrderRepository.find({
+                where: { createdByUserId: userId },
+            });
+        } catch (e) {
+            this._rethrowKnownErrors(e);
+        }
+    }
+
     private _rethrowKnownErrors(e: unknown): never {
         if (e instanceof TimeoutError) {
             throw new GatewayTimeoutException(
                 "Inventory service timeout durante operazione su inventario",
             );
         }
-        if (e instanceof HttpException || e instanceof BadRequestException) {
+        if (e instanceof HttpException) {
             throw e;
         }
         const err = e as {
@@ -145,10 +177,8 @@ export class SubOrderService {
     ): Map<string, number> {
         const map = new Map<string, number>();
         for (const line of items) {
-            map.set(
-                line.orderItemId,
-                (map.get(line.orderItemId) ?? 0) + line.quantity,
-            );
+            const key = line.orderItemId.trim();
+            map.set(key, (map.get(key) ?? 0) + line.quantity);
         }
         return map;
     }

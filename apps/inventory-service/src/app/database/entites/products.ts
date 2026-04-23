@@ -15,6 +15,9 @@ export class Product {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   basePrice: number;
 
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 22 })
+  vat: number;
+
   @Column()
   category: string;
 

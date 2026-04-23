@@ -1,5 +1,15 @@
 import { Body, Controller, ForbiddenException, Get, Inject, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
-import { AuthCommand, JwtPayload, Roles, SignInDto, UpdateUserDto, UserDto, UserRole } from '@retail-system/shared'
+import {
+    ALL_APP_ROLES,
+    AuthCommand,
+    isPrivilegedAdmin,
+    JwtPayload,
+    Roles,
+    SignInDto,
+    UpdateUserDto,
+    UserDto,
+    UserRole,
+} from '@retail-system/shared'
 import { ClientProxy } from '@nestjs/microservices';
 import { JwtAuthGuard } from './guards/jwt-auth-guard';
 import { RolesAuthGuard } from './guards/roles-auth-guard';
@@ -36,12 +46,12 @@ export class AuthController {
     }
 
     @Get(':id')
-    @Roles(UserRole.admin, UserRole.user)
+    @Roles(...ALL_APP_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async getUser(@Req() req, @Param('id') id: number) {
         const currentUser: JwtPayload = req.user;
 
-        if(currentUser.id != id && currentUser.role != UserRole.admin) {
+        if(currentUser.id != id && !isPrivilegedAdmin(currentUser.role)) {
             throw new ForbiddenException('Invalid permission');
         }
         return sendRmqWithTimeout(this.client, { cmd: AuthCommand.getUser }, id);
@@ -50,7 +60,7 @@ export class AuthController {
 
 
     @Put('update/:id')
-    @Roles(UserRole.admin, UserRole.user)
+    @Roles(...ALL_APP_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async updateUser(
         @Req() req, 

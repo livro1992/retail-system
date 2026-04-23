@@ -3,13 +3,18 @@ import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateProductDto implements Readonly<CreateProductDto> {
   @IsString()
-  productId!: string;
+  @IsOptional()
+  productId?: string;
 
   @IsString()
   name!: string;
 
   @IsString()
   description!: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  vat!: number;
 
   @Type(() => Number)
   @IsNumber()

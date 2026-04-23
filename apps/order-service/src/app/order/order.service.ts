@@ -17,6 +17,7 @@ import {
     OrderType,
     PhysicalSubOrderStatus,
 } from "@retail-system/shared";
+import { randomUUID } from "crypto";
 import { Order } from "../database/entities/order";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -46,10 +47,19 @@ export class OrderService {
      * 2. Altri flussi: check disponibilità opzionale poi riserva giacenza.
      * Una SubOrder operativa per ordine (righe collegate); suddivisione per reparto si potrà aggiungere in seguito.
      */
-    async createOrder(order: CreateOrderDto): Promise<Order> {
+    async createOrder(
+        order: CreateOrderDto,
+        options: { 
+            createdByUserId?: number 
+        },
+    ): Promise<Order> {
         try {
+            console.log('init order');
+            
             const lineItems = order.orderItems ?? [];
 
+            //
+            //  L'ordine non può essere vuoto e nemmeno i suborder non posso avere items == 0
             if (
                 lineItems.length === 0
                 && order.subOrders?.some((s) => (s.items?.length ?? 0) > 0)
@@ -58,8 +68,12 @@ export class OrderService {
                     'Righe sub-ordine con orderItemId richiedono righe ordine: crea prima gli articoli o invia sub-ordini senza righe.',
                 );
             }
+            console.log('correct order');
+            
 
-            if (this._mustCheckAvailability(order)) {
+            //
+            //  Controllo che gli articoli siano effettivamente presenti
+            /*if (this._mustCheckAvailability(order)) {
                 const availability = await this.commInventoryService.checkInventoryAvailability(order);
                 if (!availability.available) {
                     const unavailableItems = availability.items.filter((item) => !item.available);
@@ -68,17 +82,17 @@ export class OrderService {
                         items: unavailableItems
                     });
                 }
-            }
+            }*/
+            console.log('products availables');
 
+            //
+            //  Controllo che se acquisto in negozio il pagamento sia stato effettuato
             const hasLineItems = lineItems.length > 0;
             const paymentIdNormalized = order.paymentId?.trim() || undefined;
-            const effectivePaymentStatus =
-                order.paymentStatus ?? OrderPaymentStatus.pending;
+            const effectivePaymentStatus = order.paymentStatus ?? OrderPaymentStatus.pending;
 
             if (order.fulfillmentMode === OrderFullfilmentMode.shop && hasLineItems) {
-                const paymentCorrect =
-                    (order.paymentStatus === OrderPaymentStatus.paid)
-                    && paymentIdNormalized != null;
+                const paymentCorrect = (order.paymentStatus === OrderPaymentStatus.paid) && paymentIdNormalized != null;
 
                 if (!paymentCorrect) {
                     throw new HttpException('Stato di pagamento non conforme', HttpStatus.BAD_REQUEST);
@@ -86,11 +100,17 @@ export class OrderService {
             }
 
             const totalSum = lineItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-            const orderItems = lineItems.map(p =>
+            const orderItems = lineItems.map((p) =>
                 this.packageRepository.create({
-                    ...p
-                })
+                    orderItemId: randomUUID(),
+                    productId: p.productId,
+                    productName: p.productName,
+                    quantity: p.quantity,
+                    price: p.price,
+                }),
             );
+
+            console.log('correct total');
 
             const { paymentId, orderItems: _dtoItems, subOrders: _subOrdersDto, ...orderFields } = order;
             let paymentRow: Payment | null = null;
@@ -106,6 +126,8 @@ export class OrderService {
             }
             this._ensurePaidOrderHasPayment(effectivePaymentStatus, paymentRow);
 
+            console.log('order paid correctly');
+
             const query = this.orderRepository.create({
                 ...orderFields,
                 totalAmount: totalSum,
@@ -116,18 +138,28 @@ export class OrderService {
 
             try {
                 if (hasLineItems) {
-                    await this._createOperationalSubOrders(saved);
+                    console.log('hasLineItemsssss');
+                    await this._createOperationalSubOrders(saved, options?.createdByUserId);
                 } else if (order.subOrders?.length) {
-                    await this._persistVacantSubOrders(saved.orderId, order.subOrders);
+                    await this._persistVacantSubOrders(
+                        saved.orderId,
+                        order.subOrders,
+                        options?.createdByUserId,
+                    );
                 }
-                await this._applyStockForOrder(saved, order);
+                console.log('QUI????????');
+                
+                //await this._applyStockForOrder(saved, order);
             } catch (inner: unknown) {
                 await this.orderRepository.delete({ orderId: saved.orderId });
                 throw inner;
             }
-
+            console.log('DIOCANNNNNNEEEEE');
             return this.getOrderById(saved.orderId);
         } catch (e: unknown) {
+            console.log(e);
+            
+
             if (e instanceof TimeoutError) {
                 throw new GatewayTimeoutException('Inventory service timeout durante operazione su inventario');
             }
@@ -177,7 +209,10 @@ export class OrderService {
         }
     }
 
-    private async _createOperationalSubOrders(order: Order): Promise<void> {
+    private async _createOperationalSubOrders(
+        order: Order,
+        createdByUserId?: number,
+    ): Promise<void> {
         const full = await this.orderRepository.findOne({
             where: { orderId: order.orderId },
             relations: { orderItems: true },
@@ -185,21 +220,22 @@ export class OrderService {
         if (!full?.orderItems?.length) {
             return;
         }
-
+/*  momentaneamente commentato
         const productIds = full.orderItems.map((i) => i.productId);
         await firstValueFrom(
             this.inventoryClient.send(
                 { cmd: InventoryCommand.validateOrderProducts },
                 { productIds }
             ).pipe(timeout(2500))
-        );
+        );*/
 
         const isPaid = full.paymentStatus === OrderPaymentStatus.paid;
 
         const sub = this.subOrderRepository.create({
             parentOrderId: full.orderId,
-            physicalStatus: PhysicalSubOrderStatus.PENDING,
+            physicalStatus: PhysicalSubOrderStatus.READY,
             isPaid,
+            createdByUserId: createdByUserId ?? null,
             items: full.orderItems.map((line) =>
                 this.subOrderItemRepository.create({
                     orderItemId: line.orderItemId,
@@ -214,12 +250,27 @@ export class OrderService {
     private async _persistVacantSubOrders(
         orderId: string,
         subOrders: CreateSubOrderDto[],
+        createdByUserId?: number,
     ): Promise<void> {
+        const head = await this.orderRepository.findOne({
+            where: { orderId },
+            select: { marketId: true },
+        });
+        if (!head) {
+            throw new NotFoundException(`Ordine ${orderId} non trovato`);
+        }
         for (const sub of subOrders) {
+            if (sub.warehouseId) {
+                await this.commInventoryService.validateWarehouseForMarket(
+                    sub.warehouseId,
+                    head.marketId,
+                );
+            }
             const { parentOrderId: _ignoredParent, items = [], ...rest } = sub;
             const entity = this.subOrderRepository.create({
                 ...rest,
                 parentOrderId: orderId,
+                createdByUserId: createdByUserId ?? null,
                 items: items.map((line) =>
                     this.subOrderItemRepository.create({
                         orderItemId: line.orderItemId,

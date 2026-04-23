@@ -14,11 +14,16 @@ export class RolesAuthGuard implements CanActivate {
         ]);
 
         // Se ruoli non richiesti
-        if(!requiredRoles) {
+        if(!requiredRoles || requiredRoles.length === 0) {
             return true;
         }
         const { user } = context.switchToHttp().getRequest();
-        
-        return requiredRoles.some((role) => user?.role === role);
+        const userRole = user?.role as UserRole | string | undefined;
+
+        if (userRole === UserRole.superadmin) {
+            return true;
+        }
+
+        return requiredRoles.some((role) => userRole === role);
     }
 }
