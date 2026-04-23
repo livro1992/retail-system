@@ -17,6 +17,7 @@ import {
     OrderType,
     PhysicalSubOrderStatus,
 } from "@retail-system/shared";
+import { randomUUID } from "crypto";
 import { Order } from "../database/entities/order";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -48,7 +49,9 @@ export class OrderService {
      */
     async createOrder(
         order: CreateOrderDto,
-        options?: { createdByUserId?: number },
+        options: { 
+            createdByUserId?: number 
+        },
     ): Promise<Order> {
         try {
             console.log('init order');
@@ -97,10 +100,14 @@ export class OrderService {
             }
 
             const totalSum = lineItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-            const orderItems = lineItems.map(p =>
+            const orderItems = lineItems.map((p) =>
                 this.packageRepository.create({
-                    ...p
-                })
+                    orderItemId: randomUUID(),
+                    productId: p.productId,
+                    productName: p.productName,
+                    quantity: p.quantity,
+                    price: p.price,
+                }),
             );
 
             console.log('correct total');
@@ -120,8 +127,6 @@ export class OrderService {
             this._ensurePaidOrderHasPayment(effectivePaymentStatus, paymentRow);
 
             console.log('order paid correctly');
-            console.log(orderFields);
-            console.log(orderItems);
 
             const query = this.orderRepository.create({
                 ...orderFields,
@@ -131,14 +136,9 @@ export class OrderService {
             });
             const saved = await this.orderRepository.save(query);
 
-            console.log('non salvi');
-            console.log(saved);
-            
-
             try {
                 if (hasLineItems) {
                     console.log('hasLineItemsssss');
-                    
                     await this._createOperationalSubOrders(saved, options?.createdByUserId);
                 } else if (order.subOrders?.length) {
                     await this._persistVacantSubOrders(
@@ -233,7 +233,7 @@ export class OrderService {
 
         const sub = this.subOrderRepository.create({
             parentOrderId: full.orderId,
-            physicalStatus: PhysicalSubOrderStatus.PENDING,
+            physicalStatus: PhysicalSubOrderStatus.READY,
             isPaid,
             createdByUserId: createdByUserId ?? null,
             items: full.orderItems.map((line) =>

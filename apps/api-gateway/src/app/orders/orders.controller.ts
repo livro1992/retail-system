@@ -80,23 +80,6 @@ export class OrdersController {
         }
     }
 
-    async createSubOrder(@Body() subOrder: CreateSubOrderDto) {
-        try {
-            // Synchronous call: API Gateway waits for HTTP response
-            const { data } = await firstValueFrom(
-                this.httpService.post(`${orderServiceBaseUrl}/order/suborder`, subOrder, {
-                    timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
-                })
-            );
-            return data;
-        } catch (e) {
-            rethrowDownstreamHttpError(e, {
-                serviceUnavailableMessage:
-                    'Servizio Ordini momentaneamente non raggiungibile',
-            });
-        }
-    }
-
     @Post('order/:orderId/suborder/:subOrderId/materialize')
     @Roles(...SUBORDER_MATERIALIZE_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
@@ -120,6 +103,4 @@ export class OrdersController {
             });
         }
     }
-
-    
 }

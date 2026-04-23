@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpException, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
 import {
     CreateOrderDto,
     CreateSubOrderDto,
@@ -28,9 +28,14 @@ export class OrderController {
         @Headers('x-user-id') xUserId?: string,
     ) {
         const createdByUserId = this._userIdFromHeader(xUserId);
+
+        if(createdByUserId == undefined) {
+            throw new UnauthorizedException('Invalid user');
+        }
         return this.orderService.createOrder(
-            orderDto,
-            createdByUserId !== undefined ? { createdByUserId } : undefined,
+            orderDto, {
+                createdByUserId: createdByUserId
+            }
         );
     }
 
@@ -64,6 +69,11 @@ export class OrderController {
             orderId,
             subOrderId,
         );
+    }
+
+    @Get('/suborder')
+    getSubOrders(@Headers('x-user-id') xUserId: number) {
+        return this.suborderService.getSubOrders(xUserId);
     }
 
     @Get()

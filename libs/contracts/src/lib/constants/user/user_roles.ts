@@ -30,11 +30,13 @@ export const ALL_APP_ROLES: UserRole[] = [
     UserRole.operatore,
 ];
 
+/** Aligned with {@link ORDER_WRITE_ROLES}: same app users may add suborders to their order flow. */
 export const SUBORDER_CREATE_ROLES: UserRole[] = [
     UserRole.superadmin,
     UserRole.admin,
     UserRole.store_operator,
     UserRole.cashier,
+    UserRole.user,
 ];
 
 export const SUBORDER_UPDATE_ROLES: UserRole[] = [
@@ -57,6 +59,13 @@ export const SUBORDER_MATERIALIZE_ROLES: UserRole[] = [
     UserRole.admin,
     UserRole.warehouse_operator,
     UserRole.operatore,
+];
+
+export const SUBORDER_ALL_PENDING: UserRole[] = [
+    UserRole.superadmin,
+    UserRole.admin,
+    UserRole.warehouse_operator,
+    UserRole.cashier,
 ];
 
 export const INVENTORY_READ_ROLES: UserRole[] = [

@@ -5,7 +5,6 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { PhysicalSubOrderStatus } from '../../constants/orders/physical_sub_order_status';
@@ -25,11 +24,12 @@ export class CreateSubOrderDto implements Readonly<CreateSubOrderDto> {
   isPaid?: boolean;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   warehouseId?: string;
 
-  @IsArray()
+  /** Opzionale: suborder anche senza righe (es. bozza o solo metadati). */
   @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateSubOrderItemDto)
   items?: CreateSubOrderItemDto[];
