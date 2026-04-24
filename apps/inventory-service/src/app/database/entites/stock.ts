@@ -1,27 +1,46 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, RelationId, UpdateDateColumn } from "typeorm";
-import { Product } from "./products";
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  RelationId,
+  Unique,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Product } from './products';
+import { Warehouse } from './warehouse';
 
 @Entity('stock')
+@Unique('UQ_stock_warehouse_product', ['warehouseId', 'productId'])
 export class Stock {
-    @PrimaryGeneratedColumn('uuid')
-    stockId: string;
-    
-    @Column()
-    marketId: string;
+  @PrimaryGeneratedColumn('uuid')
+  stockId: string;
 
-    @Column({ default: 0 })
-    physicalQuantity: number;
+  /** Denormalizzato da `warehouse.marketId` in scrittura, per filtri e compatibilità. */
+  @Column()
+  marketId: string;
 
-    @Column({ default: 0 })
-    reservedQuantity: number;
+  @ManyToOne(() => Warehouse, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'warehouse_id', referencedColumnName: 'warehouseId' })
+  warehouse: Warehouse;
 
-    @UpdateDateColumn()
-    lastUpdate: Date;
+  @RelationId((s: Stock) => s.warehouse)
+  warehouseId: string;
 
-    @ManyToOne(() => Product, (product) => product.stocks, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'productId', referencedColumnName: 'productId' })
-    product: Product;
+  @Column({ default: 0 })
+  physicalQuantity: number;
 
-    @RelationId((s: Stock) => s.product)
-    productId: string;
+  @Column({ default: 0 })
+  reservedQuantity: number;
+
+  @UpdateDateColumn()
+  lastUpdate: Date;
+
+  @ManyToOne(() => Product, (product) => product.stocks, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'productId', referencedColumnName: 'productId' })
+  product: Product;
+
+  @RelationId((s: Stock) => s.product)
+  productId: string;
 }

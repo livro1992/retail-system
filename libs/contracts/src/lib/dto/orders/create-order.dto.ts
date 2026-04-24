@@ -28,6 +28,14 @@ export class CreateOrderDto implements Readonly<CreateOrderDto> {
       @IsString()
       marketId!: string;
 
+      /**
+       * Contesto negozio per disponibilità aggregata sui magazzini collegati (`store_warehouse_access`).
+       * Usato quando le righe ordine non portano `warehouseId`.
+       */
+      @IsOptional()
+      @IsString()
+      inventoryShopContextKey?: string;
+
       @IsEnum(OrderFullfilmentMode)
       fulfillmentMode!: OrderFullfilmentMode;
 

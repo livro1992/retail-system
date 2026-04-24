@@ -11,11 +11,17 @@ export class StockMovementsService {
   ) {}
 
   findAll(): Promise<StockMovement[]> {
-    return this.movementRepository.find({ order: { createdAt: 'DESC' } });
+    return this.movementRepository.find({
+      relations: { product: true, warehouse: true },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<StockMovement> {
-    const movement = await this.movementRepository.findOne({ where: { id } });
+    const movement = await this.movementRepository.findOne({
+      where: { id },
+      relations: { product: true, warehouse: true },
+    });
     if (!movement) {
       throw new NotFoundException(`Stock movement ${id} not found`);
     }

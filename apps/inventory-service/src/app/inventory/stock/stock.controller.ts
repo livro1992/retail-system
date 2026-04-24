@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { InventoryCommand } from '@retail-system/shared';
 import { Stock } from '../../database/entites/stock';
@@ -7,6 +17,29 @@ import { StockService } from './stock.service';
 @Controller('stock')
 export class StockController {
   constructor(private readonly stockService: StockService) {}
+
+  @Get('shop-available')
+  shopAvailable(
+    @Query('marketId') marketId: string,
+    @Query('shopStockContextKey') shopStockContextKey: string,
+    @Query('warehouseIds') warehouseIdsCsv?: string,
+  ) {
+    if (marketId == null || marketId === '') {
+      throw new BadRequestException('marketId query obbligatorio');
+    }
+    if (shopStockContextKey == null || shopStockContextKey === '') {
+      throw new BadRequestException('shopStockContextKey query obbligatorio');
+    }
+    const warehouseIds =
+      warehouseIdsCsv == null || warehouseIdsCsv === ''
+        ? undefined
+        : warehouseIdsCsv.split(',').map((s) => s.trim()).filter(Boolean);
+    return this.stockService.findShopStockView({
+      marketId,
+      shopStockContextKey,
+      warehouseIds,
+    });
+  }
 
   @Get()
   findAll() {
@@ -43,10 +76,15 @@ export class StockController {
     @Payload()
     payload: {
       marketId: string;
-      items: { productId: string; quantity: number }[];
+      items: { productId: string; quantity: number; warehouseId?: string }[];
+      shopStockContextKey?: string;
     },
   ) {
-    return this.stockService.checkAvailability(payload.marketId, payload.items);
+    return this.stockService.checkAvailability(
+      payload.marketId,
+      payload.items,
+      payload.shopStockContextKey,
+    );
   }
 
   @MessagePattern({ cmd: InventoryCommand.validateOrderProducts })
@@ -60,7 +98,7 @@ export class StockController {
     payload: {
       marketId: string;
       orderId: string;
-      items: { productId: string; quantity: number }[];
+      items: { warehouseId: string; productId: string; quantity: number }[];
     },
   ) {
     return this.stockService.reserveStockForOrder(
@@ -81,7 +119,7 @@ export class StockController {
     payload: {
       marketId: string;
       orderId: string;
-      items: { productId: string; quantity: number }[];
+      items: { warehouseId: string; productId: string; quantity: number }[];
     },
   ) {
     return this.stockService.deductInstantSale(

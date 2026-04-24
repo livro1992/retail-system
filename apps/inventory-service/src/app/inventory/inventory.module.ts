@@ -12,21 +12,38 @@ import { StockMovement } from '../database/entites/sotck_movement';
 import { Warehouse } from '../database/entites/warehouse';
 import { WarehousesController } from './warehouses/warehouses.controller';
 import { WarehousesService } from './warehouses/warehouses.service';
+import { StoreWarehouseAccess } from '../database/entites/store_warehouse_access';
+import { StoreWarehouseAccessService } from './store-warehouse-access/store-warehouse-access.service';
+import { StoreWarehouseAccessController } from './store-warehouse-access/store-warehouse-access.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
-    Product, 
+    Product,
     Stock,
     StockMovement,
     Warehouse,
+    StoreWarehouseAccess,
   ])],
   controllers: [
     ProductsController,
     StockController,
     StockMovementsController,
     WarehousesController,
+    StoreWarehouseAccessController,
   ],
-  providers: [ProductsService, StockService, StockMovementsService, WarehousesService],
-  exports: [ProductsService, StockService, StockMovementsService, WarehousesService],
+  providers: [
+    ProductsService,
+    StockService,
+    StockMovementsService,
+    WarehousesService,
+    StoreWarehouseAccessService,
+  ],
+  exports: [
+    ProductsService,
+    StockService,
+    StockMovementsService,
+    WarehousesService,
+    StoreWarehouseAccessService,
+  ],
 })
 export class InventoryModule {}

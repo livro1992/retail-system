@@ -9,6 +9,7 @@ import {
   RelationId,
 } from 'typeorm';
 import { Product } from './products';
+import { Warehouse } from './warehouse';
 
 @Entity('stock_movements')
 export class StockMovement {
@@ -21,6 +22,13 @@ export class StockMovement {
 
   @RelationId((m: StockMovement) => m.product)
   productId: string;
+
+  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'warehouse_id', referencedColumnName: 'warehouseId' })
+  warehouse: Warehouse;
+
+  @RelationId((m: StockMovement) => m.warehouse)
+  warehouseId: string;
 
   @Column()
   marketId: string;
