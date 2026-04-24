@@ -9,6 +9,7 @@ import { Product } from './database/entites/products';
 import { Stock } from './database/entites/stock';
 import { StockMovement } from './database/entites/sotck_movement';
 import { Warehouse } from './database/entites/warehouse';
+import { StoreWarehouseAccess } from './database/entites/store_warehouse_access';
 import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { InventoryModule } from './inventory/inventory.module';
             Stock,
             StockMovement,
             Warehouse,
+            StoreWarehouseAccess,
         ],
         synchronize: true
     }),

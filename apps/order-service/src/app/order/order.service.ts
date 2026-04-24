@@ -285,15 +285,40 @@ export class OrderService {
     private async _applyStockForOrder(persisted: Order, originalDto: CreateOrderDto): Promise<void> {
         const full = await this.orderRepository.findOne({
             where: { orderId: persisted.orderId },
-            relations: { orderItems: true },
+            relations: { orderItems: true, subOrders: { items: true } },
         });
         if (!full?.orderItems?.length) {
             return;
         }
-        const items = full.orderItems.map((i) => ({
-            productId: i.productId,
-            quantity: i.quantity,
-        }));
+        const orderItemById = new Map(
+            (full.orderItems ?? []).map((oi) => [oi.orderItemId, oi]),
+        );
+        const stockLines: { warehouseId: string; productId: string; quantity: number }[] = [];
+        for (const sub of full.subOrders ?? []) {
+            if (sub.warehouseId == null || sub.warehouseId === '') {
+                throw new BadRequestException(
+                    `Sub-ordine ${sub.subOrderId} senza warehouseId: impossibile movimentare inventario`,
+                );
+            }
+            for (const row of sub.items ?? []) {
+                const oi = orderItemById.get(row.orderItemId);
+                if (!oi) {
+                    throw new BadRequestException(
+                        `SubOrderItem ${row.subOrderItemId}: order_item_id ${row.orderItemId} non trovato sull ordine`,
+                    );
+                }
+                stockLines.push({
+                    warehouseId: sub.warehouseId,
+                    productId: oi.productId,
+                    quantity: row.quantity,
+                });
+            }
+        }
+        if (stockLines.length === 0) {
+            throw new BadRequestException(
+                'Nessuna riga sub-ordine collegata agli articoli ordine con magazzino: inventario non movimentato',
+            );
+        }
         const isInstant =
             originalDto.orderType === OrderType.selling
             && originalDto.fulfillmentMode === OrderFullfilmentMode.shop;
@@ -305,7 +330,7 @@ export class OrderService {
                     {
                         marketId: full.marketId,
                         orderId: full.orderId,
-                        items,
+                        items: stockLines,
                     }
                 ).pipe(timeout(2500))
             );
@@ -316,7 +341,7 @@ export class OrderService {
                     {
                         marketId: full.marketId,
                         orderId: full.orderId,
-                        items,
+                        items: stockLines,
                     }
                 ).pipe(timeout(2500))
             );
