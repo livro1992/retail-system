@@ -16,20 +16,23 @@ export class StockMovement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Product, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => Product, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'productId', referencedColumnName: 'productId' })
   product: Product;
 
   @RelationId((m: StockMovement) => m.product)
   productId: string;
 
-  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'warehouse_id', referencedColumnName: 'warehouseId' })
   warehouse: Warehouse;
 
   @RelationId((m: StockMovement) => m.warehouse)
   warehouseId: string;
 
+  /**
+   * Deve coincidere con `warehouse.marketId`; valorizzato in `StockService` insieme al magazzino.
+   */
   @Column()
   marketId: string;
 

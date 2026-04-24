@@ -17,11 +17,14 @@ export class Stock {
   @PrimaryGeneratedColumn('uuid')
   stockId: string;
 
-  /** Denormalizzato da `warehouse.marketId` in scrittura, per filtri e compatibilità. */
+  /**
+   * Denormalizzato da `warehouse.marketId` in scrittura (`StockService`), allineato al magazzino
+   * per filtri per market e compatibilità con query esistenti.
+   */
   @Column()
   marketId: string;
 
-  @ManyToOne(() => Warehouse, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Warehouse, { onDelete: 'CASCADE', nullable: false })
   @JoinColumn({ name: 'warehouse_id', referencedColumnName: 'warehouseId' })
   warehouse: Warehouse;
 
@@ -37,7 +40,9 @@ export class Stock {
   @UpdateDateColumn()
   lastUpdate: Date;
 
-  @ManyToOne(() => Product, (product) => product.stocks, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Product, (product) => product.stocks, { 
+    onDelete: 'CASCADE',
+    nullable: false })
   @JoinColumn({ name: 'productId', referencedColumnName: 'productId' })
   product: Product;
 
