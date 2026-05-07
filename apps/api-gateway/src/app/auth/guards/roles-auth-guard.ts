@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ROLES_KEY, UserRole } from "@retail-system/shared";
 import { Observable } from "rxjs";
@@ -23,7 +23,9 @@ export class RolesAuthGuard implements CanActivate {
         if (userRole === UserRole.superadmin) {
             return true;
         }
-
-        return requiredRoles.some((role) => userRole === role);
+        if (requiredRoles.some((role) => userRole === role)) {
+            return true;
+        }
+        throw new ForbiddenException('Non hai i permessi per questa operazione');
     }
 }

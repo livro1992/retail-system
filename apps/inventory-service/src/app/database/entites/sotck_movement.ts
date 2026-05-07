@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -12,6 +13,7 @@ import { Product } from './products';
 import { Warehouse } from './warehouse';
 
 @Entity('stock_movements')
+@Index('IDX_stock_movements_order_type', ['orderId', 'type'])
 export class StockMovement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -33,7 +35,7 @@ export class StockMovement {
   /**
    * Deve coincidere con `warehouse.marketId`; valorizzato in `StockService` insieme al magazzino.
    */
-  @Column()
+  @Column({ name: 'market_id' })
   marketId: string;
 
   @Column({ type: 'varchar', length: 64 })

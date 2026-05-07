@@ -10,6 +10,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  CheckAvailabilityPayloadDto,
+  DeductInstantSalePayloadDto,
+  ReserveStockForOrderPayloadDto,
+} from '@retail-system/contracts';
 import { InventoryCommand } from '@retail-system/shared';
 import { Stock } from '../../database/entites/stock';
 import { StockService } from './stock.service';
@@ -72,14 +77,7 @@ export class StockController {
   }
 
   @MessagePattern({ cmd: InventoryCommand.checkAvailability })
-  checkAvailability(
-    @Payload()
-    payload: {
-      marketId: string;
-      items: { productId: string; quantity: number; warehouseId?: string }[];
-      shopStockContextKey?: string;
-    },
-  ) {
+  checkAvailability(@Payload() payload: CheckAvailabilityPayloadDto) {
     return this.stockService.checkAvailability(
       payload.marketId,
       payload.items,
@@ -93,14 +91,7 @@ export class StockController {
   }
 
   @MessagePattern({ cmd: InventoryCommand.reserveStockForOrder })
-  reserveStockForOrder(
-    @Payload()
-    payload: {
-      marketId: string;
-      orderId: string;
-      items: { warehouseId: string; productId: string; quantity: number }[];
-    },
-  ) {
+  reserveStockForOrder(@Payload() payload: ReserveStockForOrderPayloadDto) {
     return this.stockService.reserveStockForOrder(
       payload.marketId,
       payload.orderId,
@@ -114,14 +105,7 @@ export class StockController {
   }
 
   @MessagePattern({ cmd: InventoryCommand.deductInstantSale })
-  deductInstantSale(
-    @Payload()
-    payload: {
-      marketId: string;
-      orderId: string;
-      items: { warehouseId: string; productId: string; quantity: number }[];
-    },
-  ) {
+  deductInstantSale(@Payload() payload: DeductInstantSalePayloadDto) {
     return this.stockService.deductInstantSale(
       payload.marketId,
       payload.orderId,

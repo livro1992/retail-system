@@ -1,11 +1,11 @@
 import { HttpService } from "@nestjs/axios";
-import { Body, Controller, Get, Inject, Param, Post, Put, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { Request } from "express";
 import { RolesAuthGuard } from "../auth/guards/roles-auth-guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth-guard";
 import { CreateSubOrderDto, SUBORDER_ALL_PENDING, UpdateSubOrderDto } from "@retail-system/contracts";
-import { JwtPayload, Roles, SUBORDER_CREATE_ROLES, SUBORDER_UPDATE_ROLES } from "@retail-system/shared";
+import { isPrivilegedAdmin, JwtPayload, Roles, SUBORDER_CREATE_ROLES, SUBORDER_UPDATE_ROLES } from "@retail-system/shared";
 import { firstValueFrom } from "rxjs";
 import { HTTP_DOWNSTREAM_TIMEOUT_MS } from "../rmq/send-with-timeout";
 import { rethrowDownstreamHttpError } from "../http/rethrow-downstream-http-error";
@@ -66,12 +66,36 @@ export class SubordersController {
     @Get('pending')
     @Roles(...SUBORDER_ALL_PENDING)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    async getPendingSuborders() {
+    async getPendingSuborders(
+        @Req() req: Request,
+        @Query('warehouseId') queryWarehouseId?: string,
+    ) {
         try {
+            const user = req['user'] as JwtPayload;
+            let warehouseId: string | undefined;
+            if (isPrivilegedAdmin(user?.role) && queryWarehouseId?.trim()) {
+                warehouseId = queryWarehouseId.trim();
+            } else {
+                warehouseId = user?.warehouseId?.trim();
+            }
+            if (warehouseId == null || warehouseId === '') {
+                throw new BadRequestException(
+                    'warehouseId mancante: assegna assignedWarehouseId al profilo utente o passa ?warehouseId= come admin',
+                );
+            }
             const { data } = await firstValueFrom(
-                this.httpService.get(`${orderServiceBaseUrl}/order/suborder/`, {
-                    timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
-                }),
+                this.httpService.get(
+                    `${orderServiceBaseUrl}/order/suborders/pending-for-warehouse`,
+                    {
+                        timeout: HTTP_DOWNSTREAM_TIMEOUT_MS,
+                        headers: {
+                            'x-warehouse-id': warehouseId,
+                            ...(user?.id != null
+                                ? { 'x-user-id': String(user.id) }
+                                : {}),
+                        },
+                    },
+                ),
             );
             return data;
         } catch (e) {

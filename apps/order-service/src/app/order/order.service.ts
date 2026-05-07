@@ -50,16 +50,12 @@ export class OrderService {
     async createOrder(
         order: CreateOrderDto,
         options: { 
-            createdByUserId?: number 
+            createdByUserId?: string 
         },
     ): Promise<Order> {
         try {
-            console.log('init order');
-            
             const lineItems = order.orderItems ?? [];
 
-            //
-            //  L'ordine non può essere vuoto e nemmeno i suborder non posso avere items == 0
             if (
                 lineItems.length === 0
                 && order.subOrders?.some((s) => (s.items?.length ?? 0) > 0)
@@ -68,11 +64,21 @@ export class OrderService {
                     'Righe sub-ordine con orderItemId richiedono righe ordine: crea prima gli articoli o invia sub-ordini senza righe.',
                 );
             }
-            console.log('correct order');
-            
 
-            //
-            //  Controllo che gli articoli siano effettivamente presenti
+            const hasLineItems = lineItems.length > 0;
+            if (hasLineItems) {
+                const wid = order.defaultWarehouseId?.trim();
+                if (wid == null || wid === '') {
+                    throw new BadRequestException(
+                        'defaultWarehouseId è obbligatorio quando sono presenti righe ordine',
+                    );
+                }
+                await this.commInventoryService.validateWarehouseForMarket(
+                    wid,
+                    order.marketId,
+                );
+            }
+
             /*if (this._mustCheckAvailability(order)) {
                 const availability = await this.commInventoryService.checkInventoryAvailability(order);
                 if (!availability.available) {
@@ -83,11 +89,9 @@ export class OrderService {
                     });
                 }
             }*/
-            console.log('products availables');
 
             //
             //  Controllo che se acquisto in negozio il pagamento sia stato effettuato
-            const hasLineItems = lineItems.length > 0;
             const paymentIdNormalized = order.paymentId?.trim() || undefined;
             const effectivePaymentStatus = order.paymentStatus ?? OrderPaymentStatus.pending;
 
@@ -110,9 +114,14 @@ export class OrderService {
                 }),
             );
 
-            console.log('correct total');
-
-            const { paymentId, orderItems: _dtoItems, subOrders: _subOrdersDto, ...orderFields } = order;
+            const {
+                paymentId,
+                orderItems: _dtoItems,
+                subOrders: _subOrdersDto,
+                defaultWarehouseId: _defaultWh,
+                inventoryShopContextKey: _shopCtx,
+                ...orderFields
+            } = order;
             let paymentRow: Payment | null = null;
 
             if (paymentIdNormalized) {
@@ -126,8 +135,6 @@ export class OrderService {
             }
             this._ensurePaidOrderHasPayment(effectivePaymentStatus, paymentRow);
 
-            console.log('order paid correctly');
-
             const query = this.orderRepository.create({
                 ...orderFields,
                 totalAmount: totalSum,
@@ -138,8 +145,12 @@ export class OrderService {
 
             try {
                 if (hasLineItems) {
-                    console.log('hasLineItemsssss');
-                    await this._createOperationalSubOrders(saved, options?.createdByUserId);
+                    const wid = order.defaultWarehouseId as string;
+                    await this._createOperationalSubOrders(
+                        saved,
+                        options?.createdByUserId,
+                        wid,
+                    );
                 } else if (order.subOrders?.length) {
                     await this._persistVacantSubOrders(
                         saved.orderId,
@@ -147,19 +158,14 @@ export class OrderService {
                         options?.createdByUserId,
                     );
                 }
-                console.log('QUI????????');
-                
-                //await this._applyStockForOrder(saved, order);
+
+                await this._applyStockForOrder(saved, order);
             } catch (inner: unknown) {
                 await this.orderRepository.delete({ orderId: saved.orderId });
                 throw inner;
             }
-            console.log('DIOCANNNNNNEEEEE');
             return this.getOrderById(saved.orderId);
         } catch (e: unknown) {
-            console.log(e);
-            
-
             if (e instanceof TimeoutError) {
                 throw new GatewayTimeoutException('Inventory service timeout durante operazione su inventario');
             }
@@ -211,7 +217,8 @@ export class OrderService {
 
     private async _createOperationalSubOrders(
         order: Order,
-        createdByUserId?: number,
+        createdByUserId: string | undefined,
+        defaultWarehouseId: string,
     ): Promise<void> {
         const full = await this.orderRepository.findOne({
             where: { orderId: order.orderId },
@@ -220,20 +227,18 @@ export class OrderService {
         if (!full?.orderItems?.length) {
             return;
         }
-/*  momentaneamente commentato
-        const productIds = full.orderItems.map((i) => i.productId);
-        await firstValueFrom(
-            this.inventoryClient.send(
-                { cmd: InventoryCommand.validateOrderProducts },
-                { productIds }
-            ).pipe(timeout(2500))
-        );*/
 
         const isPaid = full.paymentStatus === OrderPaymentStatus.paid;
+        const shopInstant =
+            full.orderType === OrderType.selling
+            && full.fulfillmentMode === OrderFullfilmentMode.shop;
 
         const sub = this.subOrderRepository.create({
             parentOrderId: full.orderId,
-            physicalStatus: PhysicalSubOrderStatus.READY,
+            warehouseId: defaultWarehouseId,
+            physicalStatus: shopInstant
+                ? PhysicalSubOrderStatus.READY
+                : PhysicalSubOrderStatus.PENDING,
             isPaid,
             createdByUserId: createdByUserId ?? null,
             items: full.orderItems.map((line) =>
@@ -250,7 +255,7 @@ export class OrderService {
     private async _persistVacantSubOrders(
         orderId: string,
         subOrders: CreateSubOrderDto[],
-        createdByUserId?: number,
+        createdByUserId?: string,
     ): Promise<void> {
         const head = await this.orderRepository.findOne({
             where: { orderId },
@@ -260,7 +265,18 @@ export class OrderService {
             throw new NotFoundException(`Ordine ${orderId} non trovato`);
         }
         for (const sub of subOrders) {
-            if (sub.warehouseId) {
+            const hasItems = (sub.items?.length ?? 0) > 0;
+            if (hasItems) {
+                if (sub.warehouseId == null || sub.warehouseId === '') {
+                    throw new BadRequestException(
+                        'warehouseId obbligatorio per sub-ordini con righe',
+                    );
+                }
+                await this.commInventoryService.validateWarehouseForMarket(
+                    sub.warehouseId,
+                    head.marketId,
+                );
+            } else if (sub.warehouseId) {
                 await this.commInventoryService.validateWarehouseForMarket(
                     sub.warehouseId,
                     head.marketId,

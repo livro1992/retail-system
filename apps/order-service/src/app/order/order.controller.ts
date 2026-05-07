@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, HttpException, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpException, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
 import {
     CreateOrderDto,
     CreateSubOrderDto,
@@ -14,12 +14,12 @@ export class OrderController {
         private readonly suborderService: SubOrderService
     ) {}
 
-    private _userIdFromHeader(xUserId?: string): number | undefined {
+    private _userIdFromHeader(xUserId?: string): string | undefined {
         if (xUserId == null || xUserId === '') {
             return undefined;
         }
-        const n = parseInt(xUserId, 10);
-        return Number.isFinite(n) ? n : undefined;
+        const normalized = xUserId.trim();
+        return normalized !== '' ? normalized : undefined;
     }
 
     @Post()
@@ -71,9 +71,24 @@ export class OrderController {
         );
     }
 
-    @Get('/suborder')
-    getSubOrders(@Headers('x-user-id') xUserId: number) {
-        return this.suborderService.getSubOrders(xUserId);
+    @Get('suborders/pending-for-warehouse')
+    getPendingSubOrdersForWarehouse(
+        @Headers('x-warehouse-id') warehouseId?: string,
+    ) {
+        const w = warehouseId?.trim();
+        if (w == null || w === '') {
+            throw new BadRequestException('Header x-warehouse-id obbligatorio');
+        }
+        return this.suborderService.findPendingForWarehouse(w);
+    }
+
+    @Get('suborder')
+    getSubOrders(@Headers('x-user-id') xUserId?: string) {
+        const id = this._userIdFromHeader(xUserId);
+        if (id == null) {
+            throw new BadRequestException('Header x-user-id obbligatorio');
+        }
+        return this.suborderService.getSubOrders(id);
     }
 
     @Get()

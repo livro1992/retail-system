@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -12,7 +13,9 @@ import { Product } from './products';
 import { Warehouse } from './warehouse';
 
 @Entity('stock')
-@Unique('UQ_stock_warehouse_product', ['warehouseId', 'productId'])
+/** Unicità logica magazzino × prodotto: colonne FK `warehouse_id` + `productId`. */
+@Unique('UQ_stock_warehouse_product', ['warehouse', 'product'])
+@Index('IDX_stock_market_id', ['marketId'])
 export class Stock {
   @PrimaryGeneratedColumn('uuid')
   stockId: string;
@@ -21,7 +24,7 @@ export class Stock {
    * Denormalizzato da `warehouse.marketId` in scrittura (`StockService`), allineato al magazzino
    * per filtri per market e compatibilità con query esistenti.
    */
-  @Column()
+  @Column({ name: 'market_id' })
   marketId: string;
 
   @ManyToOne(() => Warehouse, { onDelete: 'CASCADE', nullable: false })

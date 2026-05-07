@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString } from 'class-validator';
 
-export class CreateProductDto implements Readonly<CreateProductDto> {
+export class CreateProductDto /*implements Readonly<CreateProductDto>*/ {
   @IsString()
   @IsOptional()
   productId?: string;

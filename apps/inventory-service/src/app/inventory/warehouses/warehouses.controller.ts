@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+import { ValidateWarehouseForMarketPayloadDto } from '@retail-system/contracts';
 import { InventoryCommand } from '@retail-system/shared';
 import { Warehouse } from '../../database/entites/warehouse';
 import { WarehousesService } from './warehouses.service';
@@ -52,7 +53,7 @@ export class WarehousesController {
 
   @MessagePattern({ cmd: InventoryCommand.validateWarehouseForMarket })
   validateWarehouseForMarket(
-    @Payload() payload: { warehouseId: string; marketId: string },
+    @Payload() payload: ValidateWarehouseForMarketPayloadDto,
   ): Promise<void> {
     return this.warehousesService.assertWarehouseBelongsToMarket(
       payload.warehouseId,

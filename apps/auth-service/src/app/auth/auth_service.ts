@@ -11,8 +11,11 @@ export class AuthService {
         const payload: JwtPayload = {
             id: user.userId,
             email: user.email,
-            role: user.role
-        }
+            role: user.role,
+            ...(user.assignedWarehouseId
+                ? { warehouseId: user.assignedWarehouseId }
+                : {}),
+        };
 
         return {
             access_token: this.jwtService.sign(payload)
