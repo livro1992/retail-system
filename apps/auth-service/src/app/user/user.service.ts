@@ -21,7 +21,7 @@ export class UserService {
             where: {
                 email: credentials.email
             },
-            select: ["userId", "email", "password", "role"]
+            select: ["userId", "email", "password", "role", "assignedWarehouseId"]
         });
         
         if(user == null) {
@@ -40,7 +40,8 @@ export class UserService {
             const userInfo: GetUserDto = {
                 userId: user.userId,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                assignedWarehouseId: user.assignedWarehouseId
             };
 
             return {
@@ -69,7 +70,8 @@ export class UserService {
             const newUser = await this.userRepository.create({
                 email: userDto.email,
                 password: passwordHashed,
-                role: userDto.role ?? UserRole.user
+                role: userDto.role ?? UserRole.user,
+                assignedWarehouseId: userDto.assignedWarehouseId ?? null
             });
             const savedUser = await this.userRepository.save(newUser);
             delete savedUser.password;

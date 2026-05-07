@@ -11,12 +11,13 @@ import {
     CreateSubOrderDto,
     UpdateSubOrderDto,
 } from "@retail-system/contracts";
+import { PhysicalSubOrderStatus } from "@retail-system/shared";
 import { SubOrder } from "../database/entities/sub_order";
 import { SubOrderItem } from "../database/entities/sub_order_item";
 import { TimeoutError } from "rxjs";
 
 type CreateSubOrderAudit = {
-    createdByUserId?: number;
+    createdByUserId?: string;
 };
 
 @Injectable()
@@ -124,7 +125,7 @@ export class SubOrderService {
         }
     }
 
-    async getSubOrders(userId: number): Promise<SubOrder[]> {
+    async getSubOrders(userId: string): Promise<SubOrder[]> {
         try {
             return await this.subOrderRepository.find({
                 where: { createdByUserId: userId },
@@ -132,6 +133,20 @@ export class SubOrderService {
         } catch (e) {
             this._rethrowKnownErrors(e);
         }
+    }
+
+    /**
+     * Elenco suborder in attesa di evasione per il magazzino (operatore magazzino).
+     */
+    async findPendingForWarehouse(warehouseId: string): Promise<SubOrder[]> {
+        return this.subOrderRepository.find({
+            where: {
+                warehouseId,
+                physicalStatus: PhysicalSubOrderStatus.PENDING,
+            },
+            relations: { items: true, parentOrder: true },
+            order: { createdAt: 'ASC' },
+        });
     }
 
     private _rethrowKnownErrors(e: unknown): never {

@@ -46,11 +46,11 @@ export class SubOrder {
   isPaid: boolean;
 
   /** Allineato a `User.userId` nel auth-service; valorizzato dal backend (es. da JWT), non dal client. */
-  @Column({ name: 'created_by_user_id', type: 'int', nullable: true })
-  createdByUserId: number | null;
+  @Column({ name: 'created_by_user_id', type: 'uuid', nullable: true })
+  createdByUserId: string | null;
 
-  @Column({ name: 'fulfilled_by_user_id', type: 'int', nullable: true })
-  fulfilledByUserId: number | null;
+  @Column({ name: 'fulfilled_by_user_id', type: 'uuid', nullable: true })
+  fulfilledByUserId: string | null;
 
   /** Riferimento opaco al magazzino nell’inventory-service (nessuna FK cross-DB). */
   @Column({ name: 'warehouse_id', type: 'uuid', nullable: true })

@@ -26,7 +26,7 @@ export class UserController {
     }
 
     @MessagePattern({ cmd: AuthCommand.updateUser })
-    updateUser(@Payload() data: { id: number } & UpdateUserDto) {
+    updateUser(@Payload() data: { id: User["userId"] } & UpdateUserDto) {
         const { id, ...userDto } = data;
         return this.userService.updateUser(id, userDto);
     }

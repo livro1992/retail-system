@@ -1,13 +1,17 @@
-import { IsEmail, IsEnum, IsOptional, IsString } from "class-validator";
+import { IsEmail, IsEnum, IsOptional, IsUUID } from "class-validator";
 import { UserRole } from "../../constants/user/user_roles";
 
 export class GetUserDto implements Readonly<GetUserDto> {
-    @IsString()
-    userId!: number;
+    @IsUUID()
+    userId!: string;
 
     @IsEmail({}, { message: 'Inserisci un indirizzo email valido' })
     email!: string;
     
     @IsEnum(UserRole)
-    role?: UserRole;
-  }
+    role!: UserRole;
+
+    @IsOptional()
+    @IsUUID()
+    assignedWarehouseId?: string | null;
+}

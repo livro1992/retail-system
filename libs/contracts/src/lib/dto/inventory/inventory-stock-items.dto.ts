@@ -1,9 +1,18 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsInt, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 /** Movimento inventario (check / reserve / deduct) sempre ancorato a magazzino + prodotto. */
 export class InventoryStockLineDto {
   @IsString()
+  @IsNotEmpty()
   warehouseId!: string;
 
   @IsString()
@@ -16,9 +25,11 @@ export class InventoryStockLineDto {
 
 export class ReserveStockForOrderPayloadDto {
   @IsString()
+  @IsNotEmpty()
   marketId!: string;
 
   @IsString()
+  @IsNotEmpty()
   orderId!: string;
 
   @IsArray()
@@ -29,9 +40,11 @@ export class ReserveStockForOrderPayloadDto {
 
 export class DeductInstantSalePayloadDto {
   @IsString()
+  @IsNotEmpty()
   marketId!: string;
 
   @IsString()
+  @IsNotEmpty()
   orderId!: string;
 
   @IsArray()
@@ -56,6 +69,7 @@ export class CheckAvailabilityItemDto {
 
 export class CheckAvailabilityPayloadDto {
   @IsString()
+  @IsNotEmpty()
   marketId!: string;
 
   /**
@@ -69,5 +83,17 @@ export class CheckAvailabilityPayloadDto {
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   shopStockContextKey?: string;
+}
+
+/** Payload RMQ: verifica che il magazzino esista e sia nel market atteso (incrocio con ordine/suborder). */
+export class ValidateWarehouseForMarketPayloadDto {
+  @IsString()
+  @IsNotEmpty()
+  warehouseId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  marketId!: string;
 }

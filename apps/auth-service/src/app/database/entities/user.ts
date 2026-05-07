@@ -3,10 +3,10 @@ import { UserRole } from "@retail-system/shared";
 
 @Entity()
 export class User {
-    @PrimaryGeneratedColumn({
+    @PrimaryGeneratedColumn('uuid', {
         name: 'user_id'
     })
-    userId: number;
+    userId: string;
 
     @Column({
         unique: true,
@@ -27,4 +27,8 @@ export class User {
         name: 'user_role'
     })
     role: UserRole;
+
+    /** Magazzino di competenza per operatori warehouse (opaco verso inventory-service). */
+    @Column({ name: 'assigned_warehouse_id', type: 'uuid', nullable: true })
+    assignedWarehouseId: string | null;
 }

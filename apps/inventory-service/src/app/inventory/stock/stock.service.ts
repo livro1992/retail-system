@@ -70,6 +70,13 @@ export class StockService {
       payload = { ...payload, marketId: wh.marketId };
     }
     const merged = this.stockRepository.merge(stock, payload);
+    const wh = await this.warehouseRepository.findOne({
+      where: { warehouseId: merged.warehouseId },
+    });
+    if (!wh) {
+      throw new NotFoundException(`Magazzino ${merged.warehouseId} non trovato`);
+    }
+    merged.marketId = wh.marketId;
     return this.stockRepository.save(merged);
   }
 
@@ -87,17 +94,24 @@ export class StockService {
     const map = new Map<string, StockLineInput>();
 
     for (const it of items) {
-      if (it.quantity <= 0) {
+      const warehouseId = it.warehouseId?.trim() ?? '';
+      const productId = it.productId?.trim() ?? '';
+      if (warehouseId === '' || productId === '') {
         throw new BadRequestException(
-          `Quantita non positiva per prodotto ${it.productId} nel magazzino ${it.warehouseId}`,
+          'warehouseId e productId obbligatori e non vuoti per ogni riga stock',
         );
       }
-      const key = `${it.warehouseId}\0${it.productId}`;
+      if (it.quantity <= 0) {
+        throw new BadRequestException(
+          `Quantita non positiva per prodotto ${productId} nel magazzino ${warehouseId}`,
+        );
+      }
+      const key = `${warehouseId}\0${productId}`;
       const cur = map.get(key);
       if (cur) {
         cur.quantity += it.quantity;
       } else {
-        map.set(key, { ...it });
+        map.set(key, { warehouseId, productId, quantity: it.quantity });
       }
     }
     return [...map.values()];
@@ -109,7 +123,8 @@ export class StockService {
   private aggregateReserveMovements(movements: StockMovement[]): StockReleaseLine[] {
     const map = new Map<string, StockReleaseLine>();
     for (const m of movements) {
-      if (m.warehouseId == null || m.warehouseId === '') {
+      const wid = (m.warehouseId ?? m.warehouse?.warehouseId)?.trim() ?? '';
+      if (wid === '') {
         throw new BadRequestException(
           `Movimento di riserva ${m.id} senza warehouseId: eseguire backfill stock_movements prima del rilascio`,
         );
@@ -119,15 +134,21 @@ export class StockService {
           `Movimento di riserva ${m.id} ha quantita non positiva`,
         );
       }
-      const key = `${m.marketId}\0${m.warehouseId}\0${m.productId}`;
+      const pid = (m.productId ?? m.product?.productId)?.trim() ?? '';
+      if (pid === '') {
+        throw new BadRequestException(
+          `Movimento di riserva ${m.id} senza productId: dati movimento inconsistenti`,
+        );
+      }
+      const key = `${m.marketId}\0${wid}\0${pid}`;
       const cur = map.get(key);
       if (cur) {
         cur.quantity += m.quantity;
       } else {
         map.set(key, {
           marketId: m.marketId,
-          warehouseId: m.warehouseId,
-          productId: m.productId,
+          warehouseId: wid,
+          productId: pid,
           quantity: m.quantity,
         });
       }
@@ -195,8 +216,14 @@ export class StockService {
       const checks = await Promise.all(
         lines.map(async (item) => {
           const stock = await this.stockRepository.findOne({
-            where: { marketId, productId: item.productId, warehouseId: item.warehouseId },
+            where: { productId: item.productId, warehouseId: item.warehouseId },
           });
+          
+          if (stock != null && stock.marketId !== marketId) {
+            throw new BadRequestException(
+              `Stock prodotto ${item.productId} magazzino ${item.warehouseId}: marketId non coerente con la richiesta`,
+            );
+          }
           const availableQuantity =
             (stock?.physicalQuantity ?? 0) - (stock?.reservedQuantity ?? 0);
           const available = availableQuantity >= item.quantity;
@@ -309,12 +336,17 @@ export class StockService {
       );
       for (const item of lines) {
         const stock = await manager.findOne(Stock, {
-          where: { marketId, productId: item.productId, warehouseId: item.warehouseId },
+          where: { productId: item.productId, warehouseId: item.warehouseId },
           lock: { mode: 'pessimistic_write' },
         });
         if (!stock) {
           throw new BadRequestException(
             `Stock non presente per prodotto ${item.productId} nel magazzino ${item.warehouseId}`,
+          );
+        }
+        if (stock.marketId !== marketId) {
+          throw new BadRequestException(
+            `Market non coerente per stock ${item.productId} / magazzino ${item.warehouseId}`,
           );
         }
         const available = stock.physicalQuantity - stock.reservedQuantity;
@@ -344,12 +376,12 @@ export class StockService {
     await this.dataSource.transaction(async (manager) => {
       const reserves = await manager.find(StockMovement, {
         where: { orderId, type: MovementType.RESERVE },
+        relations: { warehouse: true, product: true },
       });
       const aggregated = this.aggregateReserveMovements(reserves);
       for (const line of aggregated) {
         const stock = await manager.findOne(Stock, {
           where: {
-            marketId: line.marketId,
             productId: line.productId,
             warehouseId: line.warehouseId,
           },
@@ -357,6 +389,11 @@ export class StockService {
         });
         if (!stock) {
           continue;
+        }
+        if (stock.marketId !== line.marketId) {
+          throw new BadRequestException(
+            `Rilascio ordine ${orderId}: stock magazzino ${line.warehouseId} prodotto ${line.productId} non allineato al market del movimento`,
+          );
         }
         stock.reservedQuantity -= line.quantity;
         if (stock.reservedQuantity < 0) {
@@ -392,12 +429,17 @@ export class StockService {
       );
       for (const item of lines) {
         const stock = await manager.findOne(Stock, {
-          where: { marketId, productId: item.productId, warehouseId: item.warehouseId },
+          where: { productId: item.productId, warehouseId: item.warehouseId },
           lock: { mode: 'pessimistic_write' },
         });
         if (!stock) {
           throw new BadRequestException(
             `Stock non presente per prodotto ${item.productId} nel magazzino ${item.warehouseId}`,
+          );
+        }
+        if (stock.marketId !== marketId) {
+          throw new BadRequestException(
+            `Market non coerente per stock ${item.productId} / magazzino ${item.warehouseId}`,
           );
         }
         const available = stock.physicalQuantity - stock.reservedQuantity;

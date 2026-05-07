@@ -7,12 +7,15 @@ import { JwtPayload } from "@retail-system/shared";
 export class JwtAuthGuard implements CanActivate{
     constructor(private jwtService: JwtService) {}
 
+    private static readonly UNAUTHORIZED_MESSAGE =
+        'Sessione non valida, effettua di nuovo il login';
+
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest();
         const token = this.extractTokenFromHeader(request);
 
         if (!token) {
-            throw new UnauthorizedException();
+            throw new UnauthorizedException(JwtAuthGuard.UNAUTHORIZED_MESSAGE);
         }
         try {
             // 💡 Here the JWT secret key that's used for verifying the payload 
@@ -23,7 +26,7 @@ export class JwtAuthGuard implements CanActivate{
             request['user'] = payload;
         } catch (e) {
             console.log("Errore JWT:", e.message);
-            throw new UnauthorizedException();
+            throw new UnauthorizedException(JwtAuthGuard.UNAUTHORIZED_MESSAGE);
         }
         return true;
     }

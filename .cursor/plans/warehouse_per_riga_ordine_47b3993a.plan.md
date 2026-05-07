@@ -10,10 +10,10 @@ todos:
     status: completed
   - id: inv-nearby-stock-api
     content: API/query stock per operatore negozio (lista warehouseIds consentiti o filtro «vicini» + stock per quei magazzini); modello dati per prossimità se non esiste
-    status: pending
+    status: completed
   - id: rmq-payloads
     content: Payload RMQ check/reserve/deduct con warehouseId per movimento; validazione warehouse appartiene a market dell’ordine
-    status: pending
+    status: in_progress
   - id: order-suborder-warehouse
     content: Order senza warehouseId; SubOrder.warehouseId obbligatorio dove serve fulfillment; SubOrderItem con warehouseId (o ereditato da SubOrder con vincolo applicativo documentato)
     status: pending

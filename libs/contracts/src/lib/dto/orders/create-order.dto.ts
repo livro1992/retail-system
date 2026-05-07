@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from "class-validator";
+import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, ValidateIf, ValidateNested } from "class-validator";
 import { OrderType } from "../../constants/orders/order_type";
 import { OrderStatus } from "../../constants/orders/order_status";
 import { OrderPaymentStatus } from "../../constants/orders/order_payment_status";
@@ -27,6 +27,15 @@ export class CreateOrderDto implements Readonly<CreateOrderDto> {
 
       @IsString()
       marketId!: string;
+
+      /**
+       * Magazzino da cui evadere il suborder operativo creato insieme alle righe ordine.
+       * Obbligatorio se `orderItems` non è vuoto (validazione in servizio).
+       */
+      @ValidateIf((o) => (o.orderItems?.length ?? 0) > 0)
+      @IsNotEmpty({ message: 'defaultWarehouseId è obbligatorio quando sono presenti righe ordine' })
+      @IsUUID()
+      defaultWarehouseId?: string;
 
       /**
        * Contesto negozio per disponibilità aggregata sui magazzini collegati (`store_warehouse_access`).

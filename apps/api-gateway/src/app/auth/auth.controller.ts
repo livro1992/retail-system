@@ -48,7 +48,7 @@ export class AuthController {
     @Get(':id')
     @Roles(...ALL_APP_ROLES)
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
-    async getUser(@Req() req, @Param('id') id: number) {
+    async getUser(@Req() req, @Param('id') id: string) {
         const currentUser: JwtPayload = req.user;
 
         if(currentUser.id != id && !isPrivilegedAdmin(currentUser.role)) {
@@ -64,7 +64,7 @@ export class AuthController {
     @UseGuards(JwtAuthGuard, RolesAuthGuard)
     async updateUser(
         @Req() req, 
-        @Param('id') id: number, 
+        @Param('id') id: string, 
         @Body() userDto: UpdateUserDto
     ) {
         const currentUser: JwtPayload = req.user;

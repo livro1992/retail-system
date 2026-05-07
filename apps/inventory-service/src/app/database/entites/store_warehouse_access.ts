@@ -14,7 +14,7 @@ import { Warehouse } from './warehouse';
  * da cui l’operatore negozio può vedere attingere giacenza.
  */
 @Entity('store_warehouse_access')
-@Unique('UQ_store_wh_access_ctx_wh', ['marketId', 'storeContextKey', 'warehouseId'])
+@Unique('UQ_store_wh_access_ctx_wh', ['marketId', 'storeContextKey', 'warehouse'])
 export class StoreWarehouseAccess {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -3,8 +3,11 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { PhysicalSubOrderStatus } from '../../constants/orders/physical_sub_order_status';
@@ -23,8 +26,10 @@ export class CreateSubOrderDto implements Readonly<CreateSubOrderDto> {
   @IsBoolean()
   isPaid?: boolean;
 
-  @IsOptional()
-  @IsString()
+  /** Obbligatorio se il suborder ha righe (`items`). */
+  @ValidateIf((o) => (o.items?.length ?? 0) > 0)
+  @IsNotEmpty({ message: 'warehouseId è obbligatorio quando il suborder ha righe' })
+  @IsUUID()
   warehouseId?: string;
 
   /** Opzionale: suborder anche senza righe (es. bozza o solo metadati). */

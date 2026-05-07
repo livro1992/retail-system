@@ -16,6 +16,8 @@ Riferimenti al codice:
 
 Tabella tipica TypeORM: `user` (nome di default per `@Entity()` senza nome).
 
+`assigned_warehouse_id` (UUID, nullable) collega l’operatore magazzino a un magazzino nel contesto applicativo; non è una FK verso l’inventario (DB separato).
+
 ```mermaid
 erDiagram
     USER {
@@ -23,6 +25,7 @@ erDiagram
         string email UK
         string password
         string user_role
+        uuid assigned_warehouse_id "nullable"
     }
 ```
 
@@ -30,11 +33,11 @@ erDiagram
 
 ## Inventory-service
 
-Tabelle esplicite: `products`, `stock`, `stock_movements`, `warehouses`.
+Tabelle: `products`, `stock`, `stock_movements`, `warehouses`, `store_warehouse_access`.
 
-Relazioni TypeORM: **Product** 1:N **Stock**, **Product** 1:N **StockMovement**.
-
-**Warehouse** non è collegata in TypeORM a `Stock` o `Product`. **Stock** e **StockMovement** usano `marketId` come stringa (nessuna FK verso `warehouses` nel modello attuale).
+- **Stock**: chiave unica (magazzino × prodotto). `ManyToOne` verso **Warehouse**; `marketId` denormalizzato da `warehouse.marketId` in scrittura.
+- **StockMovement**: `ManyToOne` verso **Warehouse**; `marketId` allineato al magazzino.
+- **StoreWarehouseAccess**: associa `marketId` + `storeContextKey` (contesto negozio) a un **Warehouse** — usato per esporre agli operatori negozio solo i magazzini “vicini” / consentiti.
 
 ```mermaid
 erDiagram
@@ -51,6 +54,7 @@ erDiagram
     STOCK {
         uuid stock_id PK
         string marketId
+        uuid warehouse_id FK
         int physicalQuantity
         int reservedQuantity
         datetime lastUpdate
@@ -59,6 +63,7 @@ erDiagram
     STOCK_MOVEMENT {
         uuid id PK
         string productId FK
+        uuid warehouse_id FK
         string marketId
         varchar type
         int quantity
@@ -73,7 +78,16 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+    STORE_WAREHOUSE_ACCESS {
+        uuid id PK
+        string market_id
+        varchar store_context_key
+        uuid warehouse_id FK
+    }
 
+    WAREHOUSE ||--o{ STOCK : holds
+    WAREHOUSE ||--o{ STOCK_MOVEMENT : at
+    WAREHOUSE ||--o{ STORE_WAREHOUSE_ACCESS : grant
     PRODUCT ||--o{ STOCK : has
     PRODUCT ||--o{ STOCK_MOVEMENT : logs
 ```
@@ -85,7 +99,10 @@ erDiagram
 Tabelle: `order`, `order_item`, `payment`, `sub_orders`, `sub_order_items` (ultime due con nome esplicito in `@Entity`).
 
 - **Order** → **Payment**: one-to-one; la FK `payment_id` è sulla tabella **order** (`@JoinColumn` sul lato Order).
+- **SubOrder.warehouseId**: riferimento opaco al magazzino nell’inventory-service (stesso UUID); obbligatorio in applicazione quando il suborder ha righe o serve movimentare giacenza.
 - **SubOrderItem** referenzia `order_item_id` in modo logico (stesso valore di `OrderItem.orderItemId`), senza FK TypeORM tra le due tabelle.
+
+`defaultWarehouseId` e `inventoryShopContextKey` compaiono solo nei DTO di creazione ordine (nessuna colonna su `order`).
 
 ```mermaid
 erDiagram
@@ -128,7 +145,7 @@ erDiagram
         bool is_paid
         int created_by_user_id
         int fulfilled_by_user_id
-        uuid warehouse_id "logico, no FK DB"
+        uuid warehouse_id "opaco vs inventory"
     }
     SUB_ORDER_ITEM {
         uuid sub_order_item_id PK
@@ -149,10 +166,11 @@ erDiagram
 
 Questi campi collegano i domini a livello applicativo; non sono foreign key tra database distinti:
 
-- `SubOrder.warehouseId` → magazzino nell’inventory-service (UUID opaco).
+- `SubOrder.warehouseId` → `Warehouse.warehouseId` nell’inventory-service.
+- `User.assignedWarehouseId` → stesso UUID magazzino per operatori magazzino (JWT).
 - `SubOrder.createdByUserId` / `fulfilledByUserId` → `User.userId` nell’auth-service.
 - `StockMovement.orderId` → ordine nell’order-service (stringa opaca).
-- `OrderItem.productId` / movimenti inventario → prodotto nell’inventory-service.
+- `OrderItem.productId` → prodotto nell’inventory-service.
 
 ---
 

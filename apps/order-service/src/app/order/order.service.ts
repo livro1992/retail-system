@@ -50,7 +50,7 @@ export class OrderService {
     async createOrder(
         order: CreateOrderDto,
         options: { 
-            createdByUserId?: number 
+            createdByUserId?: string 
         },
     ): Promise<Order> {
         try {
@@ -217,7 +217,7 @@ export class OrderService {
 
     private async _createOperationalSubOrders(
         order: Order,
-        createdByUserId: number | undefined,
+        createdByUserId: string | undefined,
         defaultWarehouseId: string,
     ): Promise<void> {
         const full = await this.orderRepository.findOne({
@@ -255,7 +255,7 @@ export class OrderService {
     private async _persistVacantSubOrders(
         orderId: string,
         subOrders: CreateSubOrderDto[],
-        createdByUserId?: number,
+        createdByUserId?: string,
     ): Promise<void> {
         const head = await this.orderRepository.findOne({
             where: { orderId },
